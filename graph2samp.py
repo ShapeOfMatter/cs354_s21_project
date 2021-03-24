@@ -14,16 +14,19 @@ import glob
 import os
 import shutil
 import dgl
+from dgl.dataloading import GraphDataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
 from multiprocessing import Pool
+from dgl.nn import GraphConv
 
 #these next imports are from python programs I wrote 
 from samp_utils import true_subgraph 
 from graph_getters import read_our_csv
-#from dgldataset import SyntheticDataset
+from dgldataset import SyntheticDataset
 
 
 def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, only_rds_edges=True):
@@ -261,12 +264,13 @@ def store_net(folderpath, name):
 
 def graph_sample(path,number_per,only_rds):
 
+  # commented code can be uncommented to have pkl outputs. 
+  
   #try:
   #    shutil.rmtree(path+'//outputs'+str(number_per)+'_'+str(only_rds))
   #except:
   #    pass
   #os.mkdir(path+'//outputs'+str(number_per)+'_'+str(only_rds))
-  
   
   
   input_folder = path+'//original//*.csv'
@@ -306,7 +310,7 @@ def convert_original(path):
     print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
     print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
     
-    data = pd.DataFrame(columns = ['src','dst','parent_index','parent_label'])
+    data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
     with Pool() as p:
         outputs = p.map(convert_original_helper,glob.glob(input_folder))
     data = pd.concat(outputs,ignore_index=True)
@@ -317,33 +321,90 @@ def convert_original_helper(infile):
     G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V') # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
     temp_data = pd.DataFrame(nx.to_edgelist(G))
     temp_data[2] =  ''.join([str(c) for c in infile if c.isdigit()])
-    temp_data[3] = infile[0:3]
-    temp_data.columns = ['src','dst','parent_index','parent_label']
+    temp_data[3] = 'original'
+    temp_data[4] = infile[0:3]
+    temp_data.columns = ['src','dst','parent_index','sample_num','parent_label']
     #data = pd.concat([data,temp_data],ignore_index=True)
     return temp_data
 
+class GCN(nn.Module):
+    def __init__(self, in_feats, h_feats, num_classes):
+        super(GCN, self).__init__()
+        self.conv1 = GraphConv(in_feats, h_feats)
+        self.conv2 = GraphConv(h_feats, num_classes)
+
+    def forward(self, g, in_feat):
+        h = self.conv1(g, in_feat)
+        h = F.relu(h)
+        h = self.conv2(g, h)
+        g.ndata['h'] = h
+        return dgl.mean_nodes(g, 'h')
+    
 def main():
-    new = True
+    new = False
     if new:
-        #graph_sample('schoolnetJeffsNets', 1,True)
-        #graph_sample('med',1,True)
+        # Convert networks into DGL format. Original's are entire networks.
         convert_original('schoolnetJeffsNets')
         convert_original('med')
-        graph_sample('schoolnetJeffsNets', 10,True)
-        graph_sample('med',10,True)
+        # Pulls N samples. N = 10 
+        graph_sample('schoolnetJeffsNets', 10,False)
+        graph_sample('med',10,False)
         
     # Assign test and train indicies. Note that there are 5000 files in each.
     # These will remain static for all three cases. 
+    np.random.seed(seed=None)
     train_indices = np.random.choice(np.arange(5000),size = 4000)
-    test_indices = np.array(set(range(5000))- set(train_indices))
-        
+    test_indices = np.array(list(set(range(5000))- set(train_indices)))
+    
     # Case where whole graph is used to train
+    dataset_train = SyntheticDataset()
+    dataset_train.partition(train_indices)
+    dataset_train.select_samples([0])
+    dataset_train.process()
+    
+    
+    dataset_test = SyntheticDataset()
+    dataset_test.partition(test_indices)
+    dataset_test.select_samples(list(range(10)))
+    dataset_test.process()
+    
+    train_sampler = SubsetRandomSampler(torch.arange(4000))
+    test_sampler = SubsetRandomSampler(torch.arange(1000))
+    
+    train_dataloader = GraphDataLoader(dataset_train, sampler=train_sampler, batch_size=5, drop_last=False)
+    test_dataloader = GraphDataLoader(dataset_test, sampler=test_sampler,  batch_size=5, drop_last=False)
+    
+    model = GCN(1, 4, 2) #dim of node data, conv filter size, number of classes.
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    
+    for epoch in range(50):
+        for batched_graph, labels in train_dataloader:
+            pred = model(batched_graph, batched_graph.ndata['attr'].float())
+            loss = F.cross_entropy(pred, labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+    
+        num_correct = 0
+        num_tests = 0
+        for batched_graph, labels in test_dataloader:
+            pred = model(batched_graph, batched_graph.ndata['attr'].float())
+            #print(labels,pred)
+            num_correct += (pred.argmax(1) == labels).sum().item()
+            num_tests += len(labels)
+    
+        print('Test accuracy:', num_correct / num_tests)
+    
+        # TODO, save model every epoch, accuracy, either overwrite or reload old model.
     
     # Case where 1 sample is used to train
     
     # case where 100 samples are used to train
-    pass
+
   
 if __name__ == "__main__":
     main()
+    
+    
+
   
