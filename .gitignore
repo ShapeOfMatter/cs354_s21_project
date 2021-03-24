@@ -1,3 +1,13 @@
+*.zip
+*.csv
+install_dependencies.edited.bash
+
+
+#########################
+# everything below is auto-generated.
+#########################
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
