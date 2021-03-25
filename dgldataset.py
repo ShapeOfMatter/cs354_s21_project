@@ -12,10 +12,10 @@ class SyntheticDataset(DGLDataset):
         self.data = self._load()
         
     def _load(self):
-        original_med = pd.read_csv('medoriginal.csv')
-        original_school = pd.read_csv('schoolnetJeffsNetsoriginal.csv')
-        samples_med = pd.read_csv('med10_True.csv')
-        samples_school = pd.read_csv('schoolnetJeffsNets10_True.csv')
+        original_med = pd.read_csv('datasets/medoriginal.csv')
+        original_school = pd.read_csv('datasets/schoolnetJeffsNetsoriginal.csv')
+        samples_med = pd.read_csv('datasets/med10_True.csv')
+        samples_school = pd.read_csv('datasets/schoolnetJeffsNets10_True.csv')
         data = pd.concat([original_med,original_school,samples_med,samples_school],ignore_index = True)
         return data
     def process(self):
