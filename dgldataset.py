@@ -19,23 +19,10 @@ class SyntheticDataset(DGLDataset):
         data = pd.concat([original_med,original_school,samples_med,samples_school],ignore_index = True)
         return data
     def process(self):
-        #data = self.data
-        #if not any('sample_num' in s for s in [self.data.columns]):
-        #    self.data['sample_num'] = 0
         self.data['graph_id'] = self.data['parent_index'].astype(str) + self.data['sample_num'].astype(str)  + self.data['parent_label']
         edges = self.data[['src','dst','graph_id','parent_label']]
-        #properties = pd.read_csv('./graph_properties.csv')
         self.graphs = []
         self.labels = []
-
-        # Create a graph for each graph ID from the edges table.
-        # First process the properties table into two dictionaries with graph IDs as keys.
-        # The label and number of nodes are values.
-        #label_dict = {}
-        #num_nodes_dict = {}
-        #for _, row in properties.iterrows():
-        #    label_dict[row['graph_id']] = row['label']
-         #   num_nodes_dict[row['graph_id']] = row['num_nodes']
 
         # For the edges, first group the table by graph IDs.
         edges_group = edges.groupby('graph_id')
@@ -50,7 +37,6 @@ class SyntheticDataset(DGLDataset):
             # DGL requires nodes labels are less than the number of nodes.
             # mapper function reassigns order
             mapper = dict([(all_nodes[i],i) for i in range(len(all_nodes))])
-            #num_nodes = 100
             label = graph_id[-3:]
             label = {'sch':0,'med':1}[label]
             src = np.vectorize(mapper.get)(src)

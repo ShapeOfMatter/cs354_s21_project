@@ -37,7 +37,7 @@ If you identify one, please file an issue report
 
 
 
-def read_our_csv(startOfPath, netVers):
+def read_our_csv(startOfPath: str, netVers):
     """ Read in the edge list of a graph.
     In our case we created the graphs in R and output the edgelists in a certain manner
      with file names following a certain convention.
@@ -53,34 +53,22 @@ def read_our_csv(startOfPath, netVers):
     REQUIREMENT: Whatever network is returned by this function MUST have its nodes labeled from 0 to N-1
     Otherwise the SIR simulations can behave unexpectedly
     
-
-    Parameters
-    ----------
-    startOfPath : str
-        DESCRIPTION.
-    netVers : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    G
-    The graph read in from the csv with node labels from 0 to N-1
-
+    Returns: G, The graph read in from the csv with node labels from 0 to N-1
     """
     
     pathname = startOfPath + str(netVers)+ '.csv'
-        
-    GwithRlabels = nx.read_edgelist(pathname, delimiter=',', nodetype=int, comments='V') # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
-    G = nx.convert_node_labels_to_integers(GwithRlabels, first_label=0, ordering='sorted') # doing sorted ordering so that we know for sure that the same labels always correspond to the same nodes, see notes:https://networkx.github.io/documentation/stable/reference/generated/networkx.relabel.convert_node_labels_to_integers.html#networkx.relabel.convert_node_labels_to_integers I dont think we need that but just in case. 
+
+    # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
+    GwithRlabels = nx.read_edgelist(pathname, delimiter=',', nodetype=int, comments='V')
+    # doing sorted ordering so that we know for sure that the same labels always correspond to the same nodes.
+    # https://networkx.github.io/documentation/stable/reference/generated/networkx.relabel.convert_node_labels_to_integers.html#networkx.relabel.convert_node_labels_to_integers
+    # I dont think we need that but just in case. 
+    G = nx.convert_node_labels_to_integers(GwithRlabels, first_label=0, ordering='sorted')
 
     return G
 
-
-
 # The following two functions are modified versions of NetworkX code, which is licensed using the BSD license
 # The text of this license can be found at the bottom of this document
-
-
 
 def _random_subset(seq, m):
     """ Return m unique elements from seq.
@@ -89,7 +77,6 @@ def _random_subset(seq, m):
     elements if seq holds repeated elements.
     
     Note this function was adapated from a networkx function of the same name
-
     """
     targets = set()
     while len(targets) < m:
@@ -98,34 +85,27 @@ def _random_subset(seq, m):
         targets.add(x)
     return targets
 
-
-
 def make_ba(n, m0=5, m=3):
     """Make a Barabási-Albert network with m_0 starting nodes and m edges added per additional nodes
     
     This function is adapted from https://networkx.github.io/documentation/latest/_modules/networkx/generators/random_graphs.html#barabasi_albert_graph
     to allow for control in function does not allow for control of m_0 (the number of starting nodes)
-    This modification was necessary to reproduce the methods of Chen and Lu because they specifices m_0=5 in their paper https://www.nature.com/articles/s41598-017-03379-4#Sec9
-    
-
-
+    This modification was necessary to reproduce the methods of Chen and Lu because they specifices m_0=5 in their paper
+    https://www.nature.com/articles/s41598-017-03379-4#Sec9
     """
-
-
 
     # Add m initial nodes (m0 in barabasi-speak)
     G = nx.empty_graph(m0)
 
-
     # List of existing nodes, with nodes repeated once for each adjacent edge
     repeated_nodes = [node for node in range(m0)]
     
-    
-    # For the first round,  we pick the targets before the loop, the loop always picks the new targets at the end before restarting and adding a new node
-    # in the networkx version, they got to just set targets =list(range(m0)) i.e. all the existing nodes because thats all there was to choose from but thats not true in the m_0 > m case
+    # For the first round,  we pick the targets before the loop,
+    # the loop always picks the new targets at the end before restarting and adding a new node
+    # in the networkx version, they got to just set targets =list(range(m0))
+    # i.e. all the existing nodes because thats all there was to choose from but thats not true in the m_0 > m case
     
     targets = _random_subset(repeated_nodes, m)
-    
     
     # Start adding the other n-m nodes. The first node is m0.
     source = m0
@@ -143,14 +123,10 @@ def make_ba(n, m0=5, m=3):
         source += 1
     return G
 
-
-
-
 def random_choice_no_replace_slow(options, numPairs):
     """
     Out of all possible pairs of options, pick numPairs at random without replacement
     TODO: There should be a faster way to do this
-
     """
     
     data = np.array([np.random.choice(options, 2, replace=False) for pair in range(numPairs)])
@@ -167,7 +143,6 @@ def make_sj(numCommunities=50, communitySize=40, initDegInCom=8, watts_strogatz_
      and in-community re-wiring probability watts_strogatz_p.
     Then place numBtwnCommEdges randomly between nodes in different communities,
      and then rewire numToRewire of those between-community edges to be within-community edges.
-        
 
     Parameters
     ----------
@@ -182,7 +157,8 @@ def make_sj(numCommunities=50, communitySize=40, initDegInCom=8, watts_strogatz_
         The default is 8 as was used in Salathé and Jones, (2010).
     watts_strogatz_p : int
         The rewiring probability of the in-community edges.
-        For more information see https://networkx.github.io/documentation/stable/reference/generated/networkx.generators.random_graphs.watts_strogatz_graph.html or Duncan J. Watts and Steven H. Strogatz, Collective dynamics of small-world networks, Nature, 393, pp. 440–442, 1998.
+        See https://networkx.github.io/documentation/stable/reference/generated/networkx.generators.random_graphs.watts_strogatz_graph.html
+        or Duncan J. Watts and Steven H. Strogatz, Collective dynamics of small-world networks, Nature, 393, pp. 440–442, 1998.
         Note that Salathé and Jones do not specify the value used for this parameter in their work, 
         So we just used an arbitrary value for watts_strogatz_p that resulted in networks which were "small-world".
         The purpose of including networks generated in the same manner as Salathé and Jones (2010) in the supplement-
@@ -202,34 +178,27 @@ def make_sj(numCommunities=50, communitySize=40, initDegInCom=8, watts_strogatz_
     -------
     Gunion : Networkx Graph
         The resulting "network with community structure" as created by the process outlined in Salathé and Jones (2010)
-
-    
     
     TODO: Likely this could all much much faster if we just made the adjacency matrix and then turned that into a network 
      instead of making all the networks individually and unioning them
     
     """
     
-    
-    
-    
     #Make the base network with all the communitites before connecting them
     net_i = range(numCommunities)
     netsToMerge = []
     for i in net_i:
-        #net = nx.connected_watts_strogatz_graph(n=communitySize, k=initDegInCom, p=watts_strogatz_p)
         net = nx.watts_strogatz_graph(n=communitySize, k=initDegInCom, p=watts_strogatz_p)
         net= nx.convert_node_labels_to_integers(net, first_label=i*communitySize)
         netsToMerge.append(net)
     Gunion = nx.union_all(netsToMerge)
-        
-
     
     sendCommRecCom = random_choice_no_replace_slow(options=numCommunities, numPairs=numBtwnCommEdges)
     
     #Within the sender and receiver community, pick which nodes are the the sender and receiver
     idsWthnComm = np.random.randint(communitySize, size=(numBtwnCommEdges, 2))
-    btwnCommEdges = (sendCommRecCom*communitySize)+idsWthnComm #If this line is confusing, a more explicit version of what it is doing is in the while loop below 
+    # If this line is confusing, a more explicit version of what it is doing is in the while loop below 
+    btwnCommEdges = (sendCommRecCom*communitySize)+idsWthnComm
     btwnCommEdgesSet = set([tuple(np.sort(pair)) for pair in btwnCommEdges])
     
     
@@ -246,13 +215,13 @@ def make_sj(numCommunities=50, communitySize=40, initDegInCom=8, watts_strogatz_
         btwnCommEdgesSet.add(btwnCommEdge)
         
     btwnCommEdges = list(btwnCommEdgesSet)
-    
         
     # Rewire Step
     numRewired = 0
     while numRewired < numToRewire:
         
-        #The following steps correspond directly to the paper by Salathe and Jones (2010) in the "Generation of network with community structure" subsection of Methods
+        #The following steps correspond directly to the paper by Salathe and Jones (2010)
+        # in the "Generation of network with community structure" subsection of Methods
         #Step (i): randomly choose a between-community edge
         edgeToRewire = btwnCommEdges[np.random.randint(len(btwnCommEdges))]
         
@@ -266,27 +235,17 @@ def make_sj(numCommunities=50, communitySize=40, initDegInCom=8, watts_strogatz_
         if randomNodeOfChosenComm == nodeWhoseCommunityWeChoose:
             continue #no self loops
         
-        # Step (iv): rewire the edge by detaching it from the node of the community that was not chosen in step (ii), and attaching it to the new node in the community that was chosen in step (iii)               
+        # Step (iv): rewire the edge by detaching it from the node of the community that was not chosen in step (ii),
+        # and attaching it to the new node in the community that was chosen in step (iii)               
         if Gunion.has_edge(nodeWhoseCommunityWeChoose, randomNodeOfChosenComm) == False: 
             
             Gunion.add_edge(nodeWhoseCommunityWeChoose, randomNodeOfChosenComm)
             btwnCommEdges.remove(edgeToRewire)
             numRewired+=1
-        
-        
-    
-
     
     Gunion.add_edges_from(btwnCommEdges)
-    
-    
 
     return (Gunion)
-
-
-
-
-
 
 
 """
