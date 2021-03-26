@@ -298,9 +298,13 @@ def main():
     
     # Case where whole graph is used to train
     dataset_train = SyntheticDataset()
+    print("A")
     dataset_train.partition(train_indices)
+    print("B")
     dataset_train.select_samples([0])
+    print("C")
     dataset_train.process()
+    print("D")
     
     
     dataset_test = SyntheticDataset()
