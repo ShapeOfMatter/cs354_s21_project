@@ -2,7 +2,7 @@ echo "This file needs to be edited to match the specs of your system. Copying to
 cp install_dependencies.bash install_dependencies.edited.bash
 exit
 
-pip install numpy pandas dgl-cu102 networkx netwulf 
+pip install numpy pandas dgl-cu102 networkx netwulf dataclasses-json filelock 
 
 # https://pytorch.org/get-started/locally/
 # Something wrong with torchaudio, but we're not using it so whatever?

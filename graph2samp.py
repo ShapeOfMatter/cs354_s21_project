@@ -22,11 +22,13 @@ import torch.nn.functional as F
 import pandas as pd
 from multiprocessing import Pool
 from dgl.nn import GraphConv
+from typing import Sequence
 
 #these next imports are from python programs I wrote 
 from samp_utils import true_subgraph 
 from graph_getters import read_our_csv
 from dgldataset import SyntheticDataset
+from state_classes import AdamTrainingProfile, Settings, TrainingProfile
 
 
 def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, only_rds_edges=True):
@@ -280,7 +282,33 @@ class GCN(nn.Module):
         g.ndata['h'] = h
         return dgl.mean_nodes(g, 'h')
     
-def main():
+def make_dataloader(source_csvs: Sequence[str],  # filenames
+                    use_indices: Sequence[int],  # typically used to split test/train data
+                    sub_graph_choices: Sequence[int],  # typically used to reduce load for demo
+                    max_batch_size: int  # will choose a batch size to evenly divide the data
+                    ) -> GraphDataLoader:
+    dataset = SyntheticDataset(source_csvs)
+    dataset.partition(use_indices)
+    dataset.select_samples(sub_graph_choices)
+    dataset.process()
+    batch_size = next(n for n in range(max_batch_size, 0, -1) if (len(dataset) % n) == 0)
+    print(f'Using batch size {batch_size}.')
+    sampler = SubsetRandomSampler(torch.arange(len(dataset)))  # I may have misunderstood?
+    dataloader = GraphDataLoader(dataset, sampler=sampler, batch_size=batch_size, drop_last=False)
+    return dataloader
+
+def make_optimizer(profile: TrainingProfile, model: GCN) -> torch.optim.Optimizer:
+    if isinstance(profile, AdamTrainingProfile):
+        return torch.optim.Adam(model.parameters(),
+                                lr=profile.learning_rate,
+                                betas=(profile.beta_1, profile.beta_2),
+                                eps=profile.epsilon,
+                                weight_decay=profile.weight_decay,
+                                amsgrad=profile.ams_gradient_variant)
+    else:
+        raise Exception("We haven't implemented any other optimizers.")
+
+def main(settings: Settings):
     new = False
     if new:
         # Convert networks into DGL format. Original's are entire networks.
@@ -291,35 +319,20 @@ def main():
         graph_sample('med', 10, False)
         
     # Assign test and train indicies. Note that there are 5000 files in each.
-    # These will remain static for all three cases. 
-    np.random.seed(seed=None)
-    train_indices = np.random.choice(np.arange(5000),size = 4000)
-    test_indices = np.array(list(set(range(5000))- set(train_indices)))
-    
-    # Case where whole graph is used to train
-    dataset_train = SyntheticDataset()
-    print("A")
-    dataset_train.partition(train_indices)
-    print("B")
-    dataset_train.select_samples([0])
-    print("C")
-    dataset_train.process()
-    print("D")
-    
-    
-    dataset_test = SyntheticDataset()
-    dataset_test.partition(test_indices)
-    dataset_test.select_samples(list(range(10)))
-    dataset_test.process()
-    
-    train_sampler = SubsetRandomSampler(torch.arange(4000))
-    test_sampler = SubsetRandomSampler(torch.arange(1000))
-    
-    train_dataloader = GraphDataLoader(dataset_train, sampler=train_sampler, batch_size=5, drop_last=False)
-    test_dataloader = GraphDataLoader(dataset_test, sampler=test_sampler,  batch_size=5, drop_last=False)
+    test_train_splitter = np.random.default_rng(seed=settings.deterministic_random_seed)
+    train_indices = test_train_splitter.choice(np.arange(5000),size = 4000)
+    test_indices = np.array(list(set(range(5000)) - set(train_indices)))
+    train_dataloader = make_dataloader(source_csvs=settings.source_csvs,
+                                       use_indices=train_indices,
+                                       sub_graph_choices=settings.sub_graph_choices,
+                                       max_batch_size=settings.max_batch_size)
+    test_dataloader = make_dataloader(source_csvs=settings.source_csvs,
+                                      use_indices=test_indices,
+                                      sub_graph_choices=range(10),
+                                      max_batch_size=settings.max_batch_size)
     
     model = GCN(1, 4, 2) #dim of node data, conv filter size, number of classes.
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = make_optimizer(settings.training_profile, model)
     
     for epoch in range(50):
         for batched_graph, labels in train_dataloader:
@@ -340,14 +353,10 @@ def main():
         print('Test accuracy:', num_correct / num_tests)
     
         # TODO, save model every epoch, accuracy, either overwrite or reload old model.
-    
-    # Case where 1 sample is used to train
-    
-    # case where 100 samples are used to train
 
   
 if __name__ == "__main__":
-    main()
+    main(Settings.load(sys.argv[1]))
     
     
 

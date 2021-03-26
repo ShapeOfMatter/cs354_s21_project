@@ -1,0 +1,19 @@
+{
+    "lock_file": ".subgraph_training.lock",
+    "lock_timeout": 120,
+    "state_file": "subgraph_training.state",
+    "source_csvs": [
+        "datasets/med10_True.csv",
+        "datasets/schoolnetJeffsNets10_True.csv"
+    ],
+    "sub_graph_choices": [
+        1
+    ],
+    "deterministic_random_seed": 1,
+    "model_name_format": "sub_graph_classifier_{}.pt",
+    "training_profile": {
+        "name": "Adam Bogglestone"
+    },
+    "max_batch_size": 5,
+    "total_lifetime": 300
+}

@@ -1,28 +1,21 @@
 import dgl
 from dgl.data import DGLDataset
-import torch
+import numpy as np
 import os
 import pandas as pd
-import numpy as np
+import torch
+from typing import Sequence
 
 # Class that allows DGL to access data. 
 class SyntheticDataset(DGLDataset):
-    def __init__(self):
+    def __init__(self, source_csvs: Sequence[str]):
+        def load():  # I suspect we're not using this tool correctly.
+            self.data = pd.concat((pd.read_csv(filename) for filename in source_csvs),
+                                  ignore_index=True)
+        self._load = load
         super().__init__(name='synthetic')
-        self.data = self._load()
-        print("end synthetic dataset init.")
+        print(f"Finished loading data from files: {source_csvs}.")
         
-    def _load(self):
-        #original_med = pd.read_csv('datasets/medoriginal.csv')
-        #original_school = pd.read_csv('datasets/schoolnetJeffsNetsoriginal.csv')
-        samples_med = pd.read_csv('datasets/med10_True.csv')
-        samples_school = pd.read_csv('datasets/schoolnetJeffsNets10_True.csv')
-        data = pd.concat([#original_med,
-                          #original_school,
-                          samples_med,
-                          samples_school
-                          ],ignore_index = True)
-        return data
     def process(self):
         self.data['graph_id'] = self.data['parent_index'].astype(str) + self.data['sample_num'].astype(str)  + self.data['parent_label']
         edges = self.data[['src','dst','graph_id','parent_label']]
