@@ -1,6 +1,8 @@
 *.zip
 *.csv
 install_dependencies.edited.bash
+*.state
+*.pt
 
 
 #########################

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from filelock import BaseFileLock, FileLock, SoftFileLock
-from typing import Tuple
+from os.path import isfile
+from typing import List, Tuple
 
 @dataclass_json
 @dataclass(frozen=True)
@@ -40,4 +41,30 @@ class Settings:
     def save(self, filename: str) -> None:
         with open(filename, 'w') as f:
             f.write(self.to_json(indent=4))
+
+@dataclass_json
+@dataclass(frozen=True)
+class ModelState:
+    accuracy: float
+    saved_in: str
+
+@dataclass_json
+@dataclass(frozen=False)  # MUTABLE!
+class State:
+    models: List[ModelState]
+
+    @staticmethod
+    def load(filename: str) -> "State":
+        if isfile(filename):
+            with open(filename, 'r') as f:
+                return State.from_json(f.read())
+        else:
+            state = State([])
+            state.save(filename)
+            return state
+
+    def save(self, filename: str) -> None:
+        with open(filename, 'w') as f:
+            f.write(self.to_json(indent=4))
+
 
