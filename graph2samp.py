@@ -201,9 +201,6 @@ def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, o
     
     return G_samp
 
-def store_net(folderpath, name):
-    pass
-
 def graph_sample(path,number_per,only_rds):
 
   # commented code can be uncommented to have pkl outputs. 
