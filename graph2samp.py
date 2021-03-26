@@ -22,7 +22,7 @@ import torch.nn.functional as F
 import pandas as pd
 from multiprocessing import Pool
 from dgl.nn import GraphConv
-from typing import Sequence
+from typing import Callable, Sequence
 
 #these next imports are from python programs I wrote 
 from samp_utils import true_subgraph 
@@ -334,27 +334,41 @@ def main(settings: Settings):
     model = GCN(1, 4, 2) #dim of node data, conv filter size, number of classes.
     optimizer = make_optimizer(settings.training_profile, model)
     
-    for epoch in range(50):
-        for batched_graph, labels in train_dataloader:
-            pred = model(batched_graph, batched_graph.ndata['attr'].float())
-            loss = F.cross_entropy(pred, labels)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-    
-        num_correct = 0
-        num_tests = 0
-        for batched_graph, labels in test_dataloader:
-            pred = model(batched_graph, batched_graph.ndata['attr'].float())
-            #print(labels,pred)
-            num_correct += (pred.argmax(1) == labels).sum().item()
-            num_tests += len(labels)
-    
-        print('Test accuracy:', num_correct / num_tests)
-    
+    for epoch_number in range(50):
+        new_accuracy = epoch(f'e_{epoch_number}',
+                             training_data=train_dataloader,
+                             testing_data=test_dataloader,
+                             model=model,
+                             optimizer=optimizer,
+                             criterion=F.cross_entropy)
         # TODO, save model every epoch, accuracy, either overwrite or reload old model.
 
-  
+def epoch(name: str,
+          training_data: GraphDataLoader,
+          testing_data: GraphDataLoader,
+          model: GCN,
+          optimizer: torch.optim.Optimizer,
+          criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+          ) -> float:  # returns the accuracy.
+    for batched_graph, labels in training_data:
+        pred = model(batched_graph, batched_graph.ndata['attr'].float())
+        loss = criterion(pred, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    def test(batched_graph, labels):
+        pred = model(batched_graph, batched_graph.ndata['attr'].float())
+        return (pred.argmax(1) == labels).sum().item()
+
+    num_correct = sum(test(batched_graph, labels)
+                      for batched_graph, labels in testing_data)
+    num_tests = sum(len(labels)  # There may be an even more direct way to get this.
+                    for batched_graph, labels in testing_data)
+    accuracy = num_correct / num_tests
+    print(f'Epoch {name} has accuracy {accuracy} against the test data.')
+    return accuracy
+
 if __name__ == "__main__":
     main(Settings.load(sys.argv[1]))
     
