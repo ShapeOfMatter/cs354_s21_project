@@ -201,7 +201,7 @@ def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, o
     
     return G_samp
 
-def graph_sample(path,number_per,only_rds):
+def graph_sample(path,number_per,only_rds, outdir, label):
 
   # commented code can be uncommented to have pkl outputs. 
   
@@ -211,38 +211,56 @@ def graph_sample(path,number_per,only_rds):
   #    pass
   #os.mkdir(path+'//outputs'+str(number_per)+'_'+str(only_rds))
   
+    
   
   input_folder = path+'//original//*.csv'
-  #output_folder = path+'//outputs'+str(number_per)+'_'+str(only_rds)
-  print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
-  print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-  
-  data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
-  with Pool() as p:
-      outputs = p.map(graph_sample_helper,[(number_per,only_rds,g) for g in glob.glob(input_folder)])
-  data = pd.concat(outputs,ignore_index = True)
- # for infile in glob.glob(input_folder):
-      #filename = infile[len(input_folder):]
 
-  data.to_csv(path+str(number_per)+'_'+str(only_rds)+'.csv')
+
   
-def graph_sample_helper(args):
-    number_per = args[0]
-    only_rds = args[1]
-    infile = args[2]
-    data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
-    # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
-    G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
-    for i in range(number_per):
+  for i, infile in enumerate(glob.glob(input_folder)):
+      if i == 0:
+            print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
+            print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
+
+      G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
+      
+      subdir = outdir+"/"+label+"/graph_"+str(i)
+      
+      if not os.path.exists(subdir):
+        os.makedirs(subdir)
+      
+      for j in range(number_per):
           G_samp = get_rds(G, only_rds_edges = only_rds)
-          #nx.write_gpickle(G_samp, output_folder+"/"+filename+'_'+str(i)+".pkl") 
-          temp_data = pd.DataFrame(nx.to_edgelist(G_samp))
-          temp_data[2] =  ''.join([str(c) for c in infile if c.isdigit()])
-          temp_data[3] = i
-          temp_data[4] = infile[0:3]
-          temp_data.columns = ['src','dst','parent_index','sample_num','parent_label']
-          data = pd.concat([data,temp_data],ignore_index=True)
-    return data
+          
+          
+          
+          outpath = subdir+"/sample_"+str(j)
+          nx.write_gpickle(G_samp, outpath+".pkl")
+          
+          
+        
+  
+
+  
+# def graph_sample_helper(args):
+#     number_per = args[0]
+#     only_rds = args[1]
+#     infile = args[2]
+#     data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
+#     # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
+#     G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
+#     for i in range(number_per):
+#           G_samp = get_rds(G, only_rds_edges = only_rds)
+          
+#     return G_samp
+#           #nx.write_gpickle(G_samp, output_folder+"/"+filename+'_'+str(i)+".pkl") 
+#           # temp_data = pd.DataFrame(nx.to_edgelist(G_samp))
+#           # temp_data[2] =  ''.join([str(c) for c in infile if c.isdigit()])
+#           # temp_data[3] = i
+#           # temp_data[4] = infile[0:3]
+#           # temp_data.columns = ['src','dst','parent_index','sample_num','parent_label']
+#           # data = pd.concat([data,temp_data],ignore_index=True)
+#     return data
   
 def convert_original(path):
     input_folder = path+'//original//*.csv'
