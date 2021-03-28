@@ -11,9 +11,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn import GraphConv
 from typing import Callable, Sequence
+#from tqdm import tqdm # Why'd you get rid of my loader bar :'(
 
 from dgldataset import SyntheticDataset
 from state_classes import AdamTrainingProfile, ModelState, Settings, State, TrainingProfile
+from graph2samp import convert_original, graph_sample
+
 
 class GCN(nn.Module):
     def __init__(self, in_feats, h_feats, num_classes):
@@ -28,19 +31,24 @@ class GCN(nn.Module):
         g.ndata['h'] = h
         return dgl.mean_nodes(g, 'h')
     
-def make_dataloader(source_csvs: Sequence[str],  # filenames
+def make_dataloader(#source_csvs: Sequence[str],  # filenames
                     use_indices: Sequence[int],  # typically used to split test/train data
                     sub_graph_choices: Sequence[int],  # typically used to reduce load for demo
-                    max_batch_size: int  # will choose a batch size to evenly divide the data
+                    max_batch_size: int,  # will choose a batch size to evenly divide the data
+                    master_dir: str #the directory where the all the samples are stored (in appropriately organized and labeled nested subdirectories)
                     ) -> GraphDataLoader:
-    dataset = SyntheticDataset(source_csvs)
-    dataset.partition(use_indices)
-    dataset.select_samples(sub_graph_choices)
-    dataset.process()
+    dataset = SyntheticDataset(indices=use_indices, master_dir=master_dir, sub_graph_choices=sub_graph_choices)
+    #dataset.process(use_indices=use_indices, master_dir=master_dir, sub_graph_choices=sub_graph_choices) #I am guessing the better way to do this would be to have use_indices and master_dir as SyntheticDataset() attributes initialized in the line above but idk how to write python classes
+    
+    #NOTE: Based on some print statement stuff i was doing for other reasons I found that it seems like process() gets called upon initialization so we do not need to run it again here
+    #dataset.process()
+    #dataset.select_samples(sub_graph_choices)
+    #dataset.process()
+    print("len(dataset): ", len(dataset))
     batch_size = next(n for n in range(max_batch_size, 0, -1) if (len(dataset) % n) == 0)
     print(f'Using batch size {batch_size}.')
-    sampler = SubsetRandomSampler(torch.arange(len(dataset)))  # I may have misunderstood?
-    dataloader = GraphDataLoader(dataset, sampler=sampler, batch_size=batch_size, drop_last=False)
+    sampler = SubsetRandomSampler(torch.arange(len(dataset)))  #Mako: I may have misunderstood? #Sam: Are we sure len(dataset) is the length of the number of graphs in it?
+    dataloader = GraphDataLoader(dataset, sampler=sampler, batch_size=batch_size, drop_last=False) #If stuff never gets better we should check if we really understand how this is working
     return dataloader
 
 def make_optimizer(profile: TrainingProfile, model: GCN) -> torch.optim.Optimizer:
@@ -55,6 +63,7 @@ def make_optimizer(profile: TrainingProfile, model: GCN) -> torch.optim.Optimize
         raise Exception("We haven't implemented any other optimizers.")
 
 def main(settings: Settings):
+    #print(dir(settings))
     new = False
     if new:
         # Convert networks into DGL format. Original's are entire networks.
@@ -64,20 +73,22 @@ def main(settings: Settings):
         graph_sample('schoolnetJeffsNets', 10, False)
         graph_sample('med', 10, False)
         
+    print("settings.max_batch_size: ", settings.max_batch_size)
+    
     # Assign test and train indicies. Note that there are 5000 files in each.
     test_train_splitter = np.random.default_rng(seed=settings.deterministic_random_seed)
     train_indices = test_train_splitter.choice(np.arange(5000),size = 4000)
     test_indices = np.array(list(set(range(5000)) - set(train_indices)))
-    train_dataloader = make_dataloader(source_csvs=settings.source_csvs,
+    train_dataloader = make_dataloader(master_dir="datasets/samples", # using settings seemed simple but some weird stuff was going on so i just hardcoded for now
                                        use_indices=train_indices,
                                        sub_graph_choices=settings.sub_graph_choices,
                                        max_batch_size=settings.max_batch_size)
-    test_dataloader = make_dataloader(source_csvs=settings.source_csvs,
+    test_dataloader = make_dataloader(master_dir="datasets/samples",
                                       use_indices=test_indices,
-                                      sub_graph_choices=range(10),
+                                      sub_graph_choices=[9],
                                       max_batch_size=settings.max_batch_size)
     
-    model = GCN(1, 4, 2) #dim of node data, conv filter size, number of classes.
+    model = GCN(2, 4, 2) #dim of node data, conv filter size, number of classes.
     optimizer = make_optimizer(settings.training_profile, model)
     
     for epoch_number in range(50):
