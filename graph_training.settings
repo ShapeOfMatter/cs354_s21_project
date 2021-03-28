@@ -12,7 +12,13 @@
     "deterministic_random_seed": 1,
     "model_name_format": "sub_graph_classifier_{}.pt",
     "training_profile": {
-        "name": "Adam Bogglestone"
+        "name": "Adam Bogglestone",
+        "learning_rate": 0.001,
+        "beta_1": 0.9,
+        "beta_2": 0.999,
+        "epsilon": 1e-08,
+        "weight_decay": 0,
+        "ams_gradient_variant": false
     },
     "max_batch_size": 5,
     "total_lifetime": 300
