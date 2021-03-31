@@ -31,7 +31,7 @@ from dgldataset import SyntheticDataset
 from state_classes import AdamTrainingProfile, Settings, TrainingProfile
 
 
-def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, only_rds_edges=True):
+def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False, only_rds_edges=True):
     
     N=G.number_of_nodes()
     
@@ -201,36 +201,31 @@ def get_rds(G, num_seeds=5, num_coupons=3, samp_size=100, keep_labels = False, o
     
     return G_samp
 
-def graph_sample(path,number_per,only_rds, outdir, label):
+def graph_sample(label,input_path,outdir,number_per,only_rds,size):
+  try:
+      shutil.rmtree(outdir)
+  except:
+      pass
+  os.mkdir(outdir)
+  input_folder = input_path+'//original//*.csv'
+  infiles = [(i,file, outdir,label,number_per,only_rds,size) for i,file in enumerate(glob.glob(input_folder))]
+  print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
+  print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
+  with Pool() as p:
+      p.map(graph_sample_helper,infiles)
 
-  # commented code can be uncommented to have pkl outputs. 
-  
-  #try:
-  #    shutil.rmtree(path+'//outputs'+str(number_per)+'_'+str(only_rds))
-  #except:
-  #    pass
-  #os.mkdir(path+'//outputs'+str(number_per)+'_'+str(only_rds))
-  
-    
-  
-  input_folder = path+'//original//*.csv'
 
-
-  
-  for i, infile in enumerate(glob.glob(input_folder)):
-      if i == 0:
-            print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
-            print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-
+def graph_sample_helper(info):
+      i,infile,outdir,label,number_per,only_rds,num_nodes = info[0],info[1],info[2],info[3],info[4],info[5],info[6]
       G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
       
-      subdir = outdir+"/"+label+"/graph_"+str(i)
+      subdir = outdir+"/graph_"+str(i)
       
       if not os.path.exists(subdir):
         os.makedirs(subdir)
       
       for j in range(number_per):
-          G_samp = get_rds(G, only_rds_edges = only_rds)
+          G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
           
           
           
@@ -238,50 +233,3 @@ def graph_sample(path,number_per,only_rds, outdir, label):
           nx.write_gpickle(G_samp, outpath+".pkl")
           
           
-        
-  
-
-  
-# def graph_sample_helper(args):
-#     number_per = args[0]
-#     only_rds = args[1]
-#     infile = args[2]
-#     data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
-#     # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
-#     G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
-#     for i in range(number_per):
-#           G_samp = get_rds(G, only_rds_edges = only_rds)
-          
-#     return G_samp
-#           #nx.write_gpickle(G_samp, output_folder+"/"+filename+'_'+str(i)+".pkl") 
-#           # temp_data = pd.DataFrame(nx.to_edgelist(G_samp))
-#           # temp_data[2] =  ''.join([str(c) for c in infile if c.isdigit()])
-#           # temp_data[3] = i
-#           # temp_data[4] = infile[0:3]
-#           # temp_data.columns = ['src','dst','parent_index','sample_num','parent_label']
-#           # data = pd.concat([data,temp_data],ignore_index=True)
-#     return data
-  
-def convert_original(path):
-    input_folder = path+'//original//*.csv'
-    #output_folder = path+'//outputs'+str(number_per)+'_'+str(only_rds)
-    print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
-    print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-    
-    data = pd.DataFrame(columns = ['src','dst','parent_index','sample_num','parent_label'])
-    with Pool() as p:
-        outputs = p.map(convert_original_helper,glob.glob(input_folder))
-    data = pd.concat(outputs,ignore_index=True)
-    data.to_csv(path+'original.csv')
-    
-def convert_original_helper(infile):
-    # the comments ='V' simply ignores the headers in the csv, otherwise they would be counted as edges
-    G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
-    temp_data = pd.DataFrame(nx.to_edgelist(G))
-    temp_data[2] =  ''.join([str(c) for c in infile if c.isdigit()])
-    temp_data[3] = 'original'
-    temp_data[4] = infile[0:3]
-    temp_data.columns = ['src','dst','parent_index','sample_num','parent_label']
-    return temp_data
-
-  
