@@ -19,7 +19,6 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pandas as pd
 from multiprocessing import Pool
 from dgl.nn import GraphConv
 from typing import Callable, Sequence

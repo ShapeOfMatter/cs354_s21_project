@@ -104,7 +104,7 @@ def main(settings: Settings):
             pass
     train_accuracy = []
     test_accuracy = []
-    for epoch_number in range(20):
+    for epoch_number in range(settings.epochs):
         state = State.load(settings.state_file)
         if state.models:
             # Depending if we're doing stuff in parallele, maybe we shouldn't reload every time?
@@ -131,16 +131,17 @@ def main(settings: Settings):
             state.save(settings.state_file)
         else:
             print(f'  New weights (accuracy={new_accuracy}) will be discarded.')
-    plt.plot(train_accuracy,label = 'training accuracy')
-    plt.plot(test_accuracy,label = 'validation accuracy')
+    plt.plot(train_accuracy,label = 'Training accuracy')
+    plt.plot(test_accuracy,label = 'Validation accuracy')
     plt.legend(loc = 'best')
     plt.xlabel('Epoch')
-    #plt.ylim(0,1)
+    plt.ylim(0.6,1)
     plt.ylabel('Accuracy')
     plt.title('Accuracy with sample size '+ str(settings.sample_size))
+    plt.xticks([i*4 for i in list(range(int(settings.epochs/4)+1))])
     plt.show()
     graphs = [nx.read_gpickle('datasets//samples//med//graph_0//sample_0.pkl'),nx.read_gpickle('datasets//samples//scl//graph_0//sample_0.pkl')]
-    titles = ['Colorodo Spring drug users','High school friendships']
+    titles = ['Colorodo Springs','High school friendships']
     fig, axes = plt.subplots(nrows=1, ncols=2)
     ax = axes.flatten()
     #fig.suptitle('Sample networks with sample size '+ str(settings.sample_size))

@@ -16,7 +16,8 @@
     },
     "max_batch_size": 5,
     "total_lifetime": 300,
-    "new_data": 0,
+    "new_data": 1,
     "num_samples": 1,
-    "sample_size": 10
+    "sample_size": 10,
+    "epochs":20
 }

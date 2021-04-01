@@ -33,8 +33,9 @@ class Settings:
     max_batch_size: int
     total_lifetime: int
     new_data: int
-    num_samples: 1
-    sample_size: 10
+    num_samples: int
+    sample_size: int
+    epochs: int
 
     @staticmethod
     def load(filename: str) -> "Settings":
