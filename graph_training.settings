@@ -18,6 +18,6 @@
     "total_lifetime": 300,
     "new_data": 1,
     "num_samples": 1,
-    "sample_size": 10,
+    "sample_size": 5,
     "epochs":20
 }
