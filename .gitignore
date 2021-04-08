@@ -3,7 +3,7 @@
 install_dependencies.edited.bash
 *.state
 *.pt
-
+*.pkl
 
 #########################
 # everything below is auto-generated.

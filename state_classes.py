@@ -32,6 +32,10 @@ class Settings:
     training_profile: AdamTrainingProfile
     max_batch_size: int
     total_lifetime: int
+    new_data: int
+    num_samples: int
+    sample_size: int
+    epochs: int
 
     @staticmethod
     def load(filename: str) -> "Settings":
