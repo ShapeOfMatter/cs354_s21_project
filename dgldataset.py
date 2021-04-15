@@ -1,27 +1,11 @@
 import dgl
 from dgl.data import DGLDataset
-#import numpy as np
-#import os
-#import pandas as pd
 import torch
 from typing import Sequence
 from samp_utils import true_subgraph
 
 from tqdm import tqdm
-
-
-
-
-
-
-
 import networkx as nx
-
-
-
-
-
-
 
 class SyntheticDataset(DGLDataset):
     def __init__(self, indices, master_dir, sub_graph_choices):
@@ -29,19 +13,9 @@ class SyntheticDataset(DGLDataset):
         self._indices = indices
         self._master_dir = master_dir
         self._sub_graph_choices = sub_graph_choices
-
-
         super().__init__(name='synthetic')
 
-    # def process(self,
-    #             indices: Sequence[int], #the indices of the graph included in the SyntheticDataset object
-    #             master_dir: str, #the directory where the all the samples are stored (in appropriately organized and labeled nested subdirectories)
-    #             sub_graph_choices: Sequence[int] # which samples for each graph do you want to include in the dataset), typically used to reduce load for demo
-    #             ):
     def process(self):
-        #indices = self.indices
-        #master_dir = self.master_dir
-        #sub_graph_choices = self.sub_graph_choices
         self.graphs = []
         self.labels = []
 
