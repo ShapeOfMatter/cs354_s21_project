@@ -1,5 +1,6 @@
 *.zip
 *.csv
+REDDIT-MULTI-*.txt
 install_dependencies.edited.bash
 *.state
 *.pt
