@@ -1,10 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 22 04:03:09 2021
 
-@author: samrosenblatt
-"""
 
 
 def true_subgraph(G, nodes_to_keep):

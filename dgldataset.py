@@ -24,26 +24,27 @@ class SyntheticDataset(DGLDataset):
             print("starting ", label)
             for i in tqdm(self._indices):
                 
-            #DO NOT REMOVE NEXT 9 COMMENTED LINES: We arent using this now but this example(from tutorial) would work for when we include additional graph features we get using RDS estimators during sampling once that is implemented (stuff like estimated num_nodes, estimated mean degree, estimated transitivity, etc.)
-            # properties = pd.read_csv('./graph_properties.csv')
+            '''
+            DO NOT REMOVE
+            We arent using this now but this example(from tutorial) would work for when we include additional graph features we get using RDS estimators during sampling once that is implemented (stuff like estimated num_nodes, estimated mean degree, estimated transitivity, etc.)
+            properties = pd.read_csv('./graph_properties.csv')
     
-            # # Create a graph for each graph ID from the edges table.
-            # # First process the properties table into two dictionaries with graph IDs as keys.
-            # # The label and number of nodes are values.
-            # label_dict = {}
-            # num_nodes_dict = {}
-            # for _, row in properties.iterrows():
-            #     label_dict[row['graph_id']] = row['label']
-            #     num_nodes_dict[row['graph_id']] = row['num_nodes']
+            # Create a graph for each graph ID from the edges table.
+            # First process the properties table into two dictionaries with graph IDs as keys.
+            # The label and number of nodes are values.
+            label_dict = {}
+            num_nodes_dict = {}
+            for _, row in properties.iterrows():
+                label_dict[row['graph_id']] = row['label']
+                num_nodes_dict[row['graph_id']] = row['num_nodes']
+            '''
                 
                 for j in self._sub_graph_choices:
                     
                     path = f"{self._master_dir}/{label}/graph_{i}/sample_{j}.pkl"
                     
                     G_nx = nx.read_gpickle(path)
-                    # I am going to implement the "distance_from_seed" attribute later but this is a stand-in that should give the algorithm a bit more info                   
                     for node in G_nx.nodes:
-                        #print("G_nx.nodes[node].keys():",G_nx.nodes[node].keys())
                         if ('recruiter' not in G_nx.nodes[node].keys()) or G_nx.nodes[node]['recruiter'] == "None" : #TODO: The first possibility in this OR should never happen, but it does.That means there is a bug in graph2samp.py where some people dont get assigned 'recruiter'
                             G_nx.nodes[node]['is_seed'] = 1
                         else:
@@ -63,11 +64,11 @@ class SyntheticDataset(DGLDataset):
                     #TODO: Double check that the above does indeed get read into dgl.graph as having bi-drected edges
                     g.ndata['attr'] = torch.cat((torch.reshape(g.ndata['true_degree'],(len(G_nx.nodes),1)),torch.reshape(g.ndata['is_seed'],(len(G_nx.nodes),1))),1)
 
-                    #g.add_edges(dst, src) #flip it and reverse it Ti esrever dna ti pilf nwod gnaht ym tup i
+                    # Is the graph [supposed to be] directed? handle that.
                     
                     self.graphs.append(g)
-                    self.labels.append(label) #TODO: Check if its bad that we do all the meds before we do all the scl? Maybe randomize the order at the end or in the nested loop somehow
-            print("\n\n\n\n")
+                    self.labels.append(label)
+            print(f"Finished looping on {label}")
          
         # Convert the label list to tensor for saving.
         self.labels = [{'med':0,'scl':1}[l] for l in self.labels] # The labels need to be integers.
@@ -83,20 +84,14 @@ class SyntheticDataset(DGLDataset):
 
     @property
     def indices(self):
-        r"""indices of graphs used
-        """
         return self._indices
     
     @property
     def master_dir(self):
-        r"""
-        """
         return self._master_dir
     
     @property
     def sub_graph_choices(self):
-        r"""
-        """
         return self._sub_graph_choices
 
         

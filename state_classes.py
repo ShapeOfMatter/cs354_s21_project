@@ -24,7 +24,6 @@ class AdamTrainingProfile(TrainingProfile):
 class Settings:
     lock_file: str
     lock_timeout: int
-    state_file: str
     source_csvs: Tuple[str]
     sub_graph_choices: Tuple[int]
     deterministic_random_seed: int
@@ -32,7 +31,6 @@ class Settings:
     training_profile: AdamTrainingProfile
     max_batch_size: int
     total_lifetime: int
-    new_data: int
     num_samples: int
     sample_size: int
     epochs: int
@@ -46,29 +44,5 @@ class Settings:
         with open(filename, 'w') as f:
             f.write(self.to_json(indent=4))
 
-@dataclass_json
-@dataclass(frozen=True)
-class ModelState:
-    accuracy: float
-    saved_in: str
-
-@dataclass_json
-@dataclass(frozen=False)  # MUTABLE!
-class State:
-    models: List[ModelState]
-
-    @staticmethod
-    def load(filename: str) -> "State":
-        if isfile(filename):
-            with open(filename, 'r') as f:
-                return State.from_json(f.read())
-        else:
-            state = State([])
-            state.save(filename)
-            return state
-
-    def save(self, filename: str) -> None:
-        with open(filename, 'w') as f:
-            f.write(self.to_json(indent=4))
 
 
