@@ -6,10 +6,10 @@ import torch
 import os
 import os.path as path
 
-from dgldataset import get_train_test_dataloaders
-from model import GCN
-from state_classes import Settings
-from train import epoch, make_criterion, make_optimizer
+from train_gcn.dgldataset import get_train_test_dataloaders
+from train_gcn.model import GCN
+from train_gcn.state_classes import Settings
+from train_gcn.train import epoch, make_criterion, make_optimizer
 
 def check_file_blocks(*files: str):
     '''Returns True iff none of the files exist yet.'''

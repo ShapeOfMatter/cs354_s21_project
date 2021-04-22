@@ -4,8 +4,8 @@ import torch.nn.functional as F
 from torch.optim import Adam, Optimizer
 from typing import Callable
 
-from model import GCN
-from state_classes import AdamTrainingProfile, TrainingProfile
+from train_gcn.model import GCN
+from train_gcn.state_classes import AdamTrainingProfile, TrainingProfile
     
 def make_optimizer(profile: TrainingProfile, model: GCN) -> Optimizer:
     if isinstance(profile, AdamTrainingProfile):

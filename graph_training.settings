@@ -19,5 +19,6 @@
     "new_data": 1,
     "num_samples": 1,
     "sample_size": 5,
-    "epochs":20
+    "epochs":20,
+    "model_filename": "sub_graph_classifier"
 }

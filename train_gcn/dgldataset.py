@@ -8,7 +8,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 from typing import Sequence, Tuple
 
-from state_classes import Settings
+from train_gcn.state_classes import Settings
 
 def true_subgraph(G, nodes_to_keep):
     G_sub = G.copy(as_view=False)

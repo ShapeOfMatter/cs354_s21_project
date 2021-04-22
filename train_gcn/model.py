@@ -1,5 +1,7 @@
 import torch.nn as nn
-
+import dgl
+from dgl.nn.pytorch import GraphConv
+import torch.nn.functional as F
 
 class GCN(nn.Module):
     def __init__(self, in_feats, h_feats, num_classes):
