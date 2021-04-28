@@ -14,6 +14,7 @@ import sys
 import glob
 import os
 import shutil
+import traceback
 # import dgl
 # from dgl.dataloading import GraphDataLoader
 # from torch.utils.data.sampler import SubsetRandomSampler
@@ -41,15 +42,6 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False, o
     N=G.number_of_nodes()
     
     
-    if keep_labels:
-        print("Assuming the current labels are integers from 0 to N-1")
-    
-    if keep_labels == False:
-        # doing sorted ordering so that we know for sure that the same labels always correspond to the same nodes,
-        # I dont think we need that but just in case.
-        # https://networkx.github.io/documentation/stable/reference/generated/networkx.relabel.convert_node_labels_to_integers.html#networkx.relabel.convert_node_labels_to_integers
-        # if the network came with node labels before, make a node attribute "old_lable" and store them there.
-        G = nx.convert_node_labels_to_integers(G, first_label=0, ordering='sorted', label_attribute="old_label")
     
     seeds = np.random.choice(N, num_seeds, replace=False)
     
@@ -179,21 +171,23 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False, o
                 G_samp.nodes[recruiter]['recruits'] = []
             
             # So we are going to let them try to add people even if they are already in the sample because it seems thats how its done irl
-            
-            recruit = np.random.choice(neighbors) #could be slightly faster if i pick the index using randint and then select from that
-            if recruit not in nodes_in_samp:
-                nodes_in_samp.add(recruit)
-                G_samp.add_edge(recruiter, recruit, edge_type='recruited')
-                G_samp.nodes[recruit]['recruits'] = []
+            if neighbors:
+                    
                 
-                G_samp.nodes[recruit]["true_degree"] = len(neighbors)
-                G_samp.nodes[recruiter]['recruits'].append(recruit)
-                #copy any other info from G
-                for key, value in G.nodes[recruit].items():
-                    G_samp.nodes[recruit][key] = value #maybe we wanna add a prefix that this is info from before or something?
-                    #TODO: theres gotta be a faster way than this to copy over the relevant info using some subgraph mechanism
-                
-                coupon_holders += num_coupons*[recruit]
+                recruit = np.random.choice(neighbors) #could be slightly faster if i pick the index using randint and then select from that
+                if recruit not in nodes_in_samp:
+                    nodes_in_samp.add(recruit)
+                    G_samp.add_edge(recruiter, recruit, edge_type='recruited')
+                    G_samp.nodes[recruit]['recruits'] = []
+                    
+                    G_samp.nodes[recruit]["true_degree"] = len(neighbors)
+                    G_samp.nodes[recruiter]['recruits'].append(recruit)
+                    #copy any other info from G
+                    for key, value in G.nodes[recruit].items():
+                        G_samp.nodes[recruit][key] = value #maybe we wanna add a prefix that this is info from before or something?
+                        #TODO: theres gotta be a faster way than this to copy over the relevant info using some subgraph mechanism
+                    
+                    coupon_holders += num_coupons*[recruit]
     
         # Now we want to add the rest of the edges
         # This is really janky, if we end up using this module instead of some elses this could def be sped up
@@ -218,12 +212,13 @@ def graph_sample(input_path,outdir,number_per,only_rds,size):
 
   print("ASSUMING YOUR INPUT NETWORKS ARE gzips of CSVs OF A SPECIFIC FORMAT")
   print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-  with Pool(4) as p: #limit to 4 processes so it doesnt crash my computer again
+  with Pool(2, maxtasksperchild=1) as p: #limit to 2 processes so it doesnt crash my computer again
       p.map(graph_sample_helper,infiles)
 
 
 def graph_sample_helper(info):
     #print("gettin some help")
+    print("\n")
     i,infile,outdir,number_per,only_rds,num_nodes = info[0],info[1],info[2],info[3],info[4],info[5]
     #G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
       
@@ -231,7 +226,9 @@ def graph_sample_helper(info):
     df = pd.read_csv(gzip.open(infile, 'rb'), 
                  sep="	",
                 na_values = na_vals,
-                keep_default_na=False)
+                keep_default_na=False,
+                dtype = {'page_id_from':np.int64, 'page_id_to':np.int64},
+                usecols = ['page_id_from', 'page_id_to'])
     
     #Check there are no missing values
     print("there are ", df.isnull().sum().sum(), " missing values in df created from ", infile)
@@ -246,10 +243,21 @@ def graph_sample_helper(info):
         os.makedirs(subdir)
         
     
+    G = nx.convert_node_labels_to_integers(G, first_label=0, ordering='sorted')
+
+    
+    
     for j in range(number_per):
+        print("\n")
         outpath = subdir+"/sample_"+str(j)
         print("about to make ", outpath)
-        G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
+        
+        try:
+            G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
+        except Exception as e:
+            #print(e)
+            traceback.print_exc()
+            
         print("G_sampe  number of nodes: ", G_samp.number_of_nodes())
         
         
@@ -258,7 +266,7 @@ def graph_sample_helper(info):
         print(outpath, " should be made by now")
 
           
-input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata"
+input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata/dutch_small"
 outdir = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/samples"
 number_per = 10
 only_rds = False
