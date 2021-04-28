@@ -7,12 +7,8 @@ import networkx as nx
 import numpy as np
 import os
 import pandas as pd
-from pandas._libs.parsers import STR_NA_VALUES
 import shutil
 import traceback
-
-#Global constants
-na_vals = STR_NA_VALUES - set(['NaN']) # There is a literal wikipedia page about nan values and this was interpreting that as missing valeus so we explicitly prevent that https://en.wikipedia.org/wiki/NaN
 
 def true_subgraph(G, nodes_to_keep):  # This looks slow...
     G_sub = G.copy(as_view=False)
@@ -95,70 +91,61 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
     
     return G_samp
 
-def graph_sample(input_path,outdir,number_per,only_rds,size):
+def graph_sample(input_path, outdir, number_per, only_rds, size):
   try:
       shutil.rmtree(outdir)
   except:
       pass
   os.mkdir(outdir)
-  input_folder = input_path+'/*.csv.gz'
-  print("input folder: ", input_folder)
-  infiles = [(i,file, outdir,number_per,only_rds,size) for i,file in enumerate(glob.glob(input_folder))]
+  input_folder = input_path + '/*.csv.gz'
+  print(f"input folder: {input_folder}")
+  infiles = [(i, f, outdir, number_per, only_rds, size) for (i, f) in enumerate(glob.glob(input_folder))]
 
-  print("ASSUMING YOUR INPUT NETWORKS ARE gzips of CSVs OF A SPECIFIC FORMAT")
-  print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-  with Pool(2, maxtasksperchild=1) as p: #limit to 2 processes so it doesnt crash my computer again
-      p.map(graph_sample_helper,infiles)
+  print(f'STARTING POOL WITH {len(infiles)} TASKS')
+  with Pool(2, maxtasksperchild=1) as p:
+      p.map(graph_sample_helper, infiles)
 
 
 def graph_sample_helper(info):
-    #print("gettin some help")
-    print("\n")
-    i,infile,outdir,number_per,only_rds,num_nodes = info[0],info[1],info[2],info[3],info[4],info[5]
-    #G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
-      
-
-    df = pd.read_csv(gzip.open(infile, 'rb'), 
-                 sep="	",
-                na_values = na_vals,
-                keep_default_na=False,
-                dtype = {'page_id_from':np.int64, 'page_id_to':np.int64},
-                usecols = ['page_id_from', 'page_id_to'])
+    i, infile, outdir, number_per, only_rds, num_nodes = info
+    print(f"POOL-TASK {i} BEGINING.")
+    columns_types = {
+        'page_id_from': np.int64,
+        'page_id_to': np.int64
+    }
+    df = pd.read_csv(gzip.open(infile, 'rb'),
+                     sep="	",
+                     keep_default_na=False,
+                     dtype = columns_types,
+                     usecols = columns_types.keys())
     
     #Check there are no missing values
-    print("there are ", df.isnull().sum().sum(), " missing values in df created from ", infile)
+    print(f"there are {df.isnull().sum().sum()} missing values in df created from {infile}")
     
     #create networkx graph from two of the columns in the dataframe
-    G = nx.from_pandas_edgelist(df, source='page_id_from', target='page_id_to', create_using=nx.DiGraph())
-    print("number of nodes: ", G.number_of_nodes())
+    _G = nx.from_pandas_edgelist(df, source='page_id_from', target='page_id_to', create_using=nx.DiGraph())
+    G = nx.convert_node_labels_to_integers(_G, first_label=0, ordering='sorted')
+    print(f"number of nodes: {G.number_of_nodes()}")
     df=None #clear the dataframe once its been read from cuz it takes alot of memory
-    subdir = outdir+"/"+infile[-39:-7]
-      
+    
+    subdir = outdir + "/" + infile[-39:-7]  # TODO: actually parse the string.
     if not os.path.exists(subdir):
         os.makedirs(subdir)
-        
-    
-    G = nx.convert_node_labels_to_integers(G, first_label=0, ordering='sorted')
-
-    
     
     for j in range(number_per):
-        print("\n")
-        outpath = subdir+"/sample_"+str(j)
-        print("about to make ", outpath)
+        outpath = subdir + "/sample_" + str(j) + ".pkl"
+        print(f"About to make {outpath}")
         
         try:
             G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
         except Exception as e:
-            #print(e)
             traceback.print_exc()
+            return
             
-        print("G_sampe  number of nodes: ", G_samp.number_of_nodes())
+        print(f"G_samp ({i},{j}) number of nodes: {G_samp.number_of_nodes()}")
         
-        
-        
-        nx.write_gpickle(G_samp, outpath+".pkl")
-        print(outpath, " should be made by now")
+        nx.write_gpickle(G_samp, outpath)
+        print(f"{outpath} should be made by now.")
 
           
 input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata/dutch_small"
