@@ -1,39 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-
-@author: samrosenblatt
-"""
-
+import glob
+import gzip
+from multiprocessing import Pool
 import networkx as nx
 import numpy as np
-import pandas as pd
-import random
-import netwulf
-import sys
-import glob
 import os
+import pandas as pd
+from pandas._libs.parsers import STR_NA_VALUES
 import shutil
 import traceback
-# import dgl
-# from dgl.dataloading import GraphDataLoader
-# from torch.utils.data.sampler import SubsetRandomSampler
-#import torch
-#import torch.nn as nn
-#import torch.nn.functional as F
-from multiprocessing import Pool
-#from dgl.nn import GraphConv
-from typing import Callable, Sequence
-import gzip
 
-#these next imports are from python programs I wrote 
 from samp_utils import true_subgraph 
-from graph_getters import read_our_csv
-#from dgldataset import SyntheticDataset
-#from state_classes import AdamTrainingProfile, Settings, TrainingProfile
 
 #Global constants
-from pandas._libs.parsers import STR_NA_VALUES
 na_vals = STR_NA_VALUES - set(['NaN']) # There is a literal wikipedia page about nan values and this was interpreting that as missing valeus so we explicitly prevent that https://en.wikipedia.org/wiki/NaN
 
 
