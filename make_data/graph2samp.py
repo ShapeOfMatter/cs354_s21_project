@@ -7,27 +7,33 @@
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 import random
 import netwulf
 import sys
 import glob
 import os
 import shutil
-import dgl
-from dgl.dataloading import GraphDataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+# import dgl
+# from dgl.dataloading import GraphDataLoader
+# from torch.utils.data.sampler import SubsetRandomSampler
+#import torch
+#import torch.nn as nn
+#import torch.nn.functional as F
 from multiprocessing import Pool
-from dgl.nn import GraphConv
+#from dgl.nn import GraphConv
 from typing import Callable, Sequence
+import gzip
 
 #these next imports are from python programs I wrote 
 from samp_utils import true_subgraph 
 from graph_getters import read_our_csv
-from dgldataset import SyntheticDataset
-from state_classes import AdamTrainingProfile, Settings, TrainingProfile
+#from dgldataset import SyntheticDataset
+#from state_classes import AdamTrainingProfile, Settings, TrainingProfile
+
+#Global constants
+from pandas._libs.parsers import STR_NA_VALUES
+na_vals = STR_NA_VALUES - set(['NaN']) # There is a literal wikipedia page about nan values and this was interpreting that as missing valeus so we explicitly prevent that https://en.wikipedia.org/wiki/NaN
 
 
 def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False, only_rds_edges=True):
@@ -200,35 +206,61 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False, o
     
     return G_samp
 
-def graph_sample(label,input_path,outdir,number_per,only_rds,size):
+def graph_sample(input_path,outdir,number_per,only_rds,size):
   try:
       shutil.rmtree(outdir)
   except:
       pass
   os.mkdir(outdir)
-  input_folder = input_path+'//original//*.csv'
-  infiles = [(i,file, outdir,label,number_per,only_rds,size) for i,file in enumerate(glob.glob(input_folder))]
-  print("ASSUMING YOUR INPUT NETWORKS ARE CSVs OF A SPECIFIC FORMAT")
+  input_folder = input_path+'/*.csv.gz'
+  print("input folder: ", input_folder)
+  infiles = [(i,file, outdir,number_per,only_rds,size) for i,file in enumerate(glob.glob(input_folder))]
+
+  print("ASSUMING YOUR INPUT NETWORKS ARE gzips of CSVs OF A SPECIFIC FORMAT")
   print("YOU LIKELY WANT TO CHANGE THIS READING IN PART")
-  with Pool() as p:
+  with Pool(4) as p: #limit to 4 processes so it doesnt crash my computer again
       p.map(graph_sample_helper,infiles)
 
 
 def graph_sample_helper(info):
-      i,infile,outdir,label,number_per,only_rds,num_nodes = info[0],info[1],info[2],info[3],info[4],info[5],info[6]
-      G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
+    #print("gettin some help")
+    i,infile,outdir,number_per,only_rds,num_nodes = info[0],info[1],info[2],info[3],info[4],info[5]
+    #G = nx.read_edgelist(infile, delimiter=',', nodetype=int, comments='V')
       
-      subdir = outdir+"/graph_"+str(i)
+
+    df = pd.read_csv(gzip.open(infile, 'rb'), 
+                 sep="	",
+                na_values = na_vals,
+                keep_default_na=False)
+    
+    #Check there are no missing values
+    print("there are ", df.isnull().sum().sum(), " missing values in df created from ", infile)
+    
+    #create networkx graph from two of the columns in the dataframe
+    G = nx.from_pandas_edgelist(df, source='page_id_from', target='page_id_to', create_using=nx.DiGraph())
+    print("number of nodes: ", G.number_of_nodes())
+    df=None #clear the dataframe once its been read from cuz it takes alot of memory
+    subdir = outdir+"/"+infile[-39:-7]
       
-      if not os.path.exists(subdir):
+    if not os.path.exists(subdir):
         os.makedirs(subdir)
-      
-      for j in range(number_per):
-          G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
+        
+    
+    for j in range(number_per):
+        outpath = subdir+"/sample_"+str(j)
+        print("about to make ", outpath)
+        G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
+        print("G_sampe  number of nodes: ", G_samp.number_of_nodes())
+        
+        
+        
+        nx.write_gpickle(G_samp, outpath+".pkl")
+        print(outpath, " should be made by now")
+
           
-          
-          
-          outpath = subdir+"/sample_"+str(j)
-          nx.write_gpickle(G_samp, outpath+".pkl")
-          
-          
+input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata"
+outdir = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/samples"
+number_per = 10
+only_rds = False
+size = 100
+graph_sample(input_path,outdir,number_per,only_rds,size)          
