@@ -91,7 +91,7 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
     
     return G_samp
 
-def graph_sample(input_path, outdir, number_per, only_rds, size):
+def graph_sample(input_path, outdir, number_per, size):
   try:
       shutil.rmtree(outdir)
   except:
@@ -99,7 +99,7 @@ def graph_sample(input_path, outdir, number_per, only_rds, size):
   os.mkdir(outdir)
   input_folder = input_path + '/*.csv.gz'
   print(f"input folder: {input_folder}")
-  infiles = [(i, f, outdir, number_per, only_rds, size) for (i, f) in enumerate(glob.glob(input_folder))]
+  infiles = [(i, f, outdir, number_per, size) for (i, f) in enumerate(glob.glob(input_folder))]
 
   print(f'STARTING POOL WITH {len(infiles)} TASKS')
   with Pool(2, maxtasksperchild=1) as p:
@@ -107,7 +107,7 @@ def graph_sample(input_path, outdir, number_per, only_rds, size):
 
 
 def graph_sample_helper(info):
-    i, infile, outdir, number_per, only_rds, num_nodes = info
+    i, infile, outdir, number_per, num_nodes = info
     print(f"POOL-TASK {i} BEGINING.")
     columns_types = {
         'page_id_from': np.int64,
@@ -137,7 +137,7 @@ def graph_sample_helper(info):
         print(f"About to make {outpath}")
         
         try:
-            G_samp = get_rds(G, only_rds_edges = only_rds,samp_size = num_nodes)
+            G_samp = get_rds(G, samp_size = num_nodes)
         except Exception as e:
             traceback.print_exc()
             return
@@ -151,6 +151,5 @@ def graph_sample_helper(info):
 input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata/dutch_small"
 outdir = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/samples"
 number_per = 10
-only_rds = False
 size = 100
-graph_sample(input_path,outdir,number_per,only_rds,size)          
+graph_sample(input_path,outdir,number_per,size)          
