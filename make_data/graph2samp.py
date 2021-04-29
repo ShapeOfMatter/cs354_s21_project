@@ -30,8 +30,8 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
         return np.random.choice(list(nodes_not_in_samp), num_seeds, replace=False)
 
     def add_nodes_to_samp(nodes):
-        nodes_in_samp.update(*nodes)
-        nodes_not_in_samp.difference_update(*nodes)
+        nodes_in_samp.update(nodes)
+        nodes_not_in_samp.difference_update(nodes)
         # We want coupon_holders to have num_seeds copies of each seed.
         # This represents how many coupons have yet to be given out and who holds them.
         coupon_holders.extend(n for n in nodes for _ in range(num_coupons))
@@ -130,8 +130,8 @@ def graph_sample_helper(info):
  
 # TODO: take cli arguments and wrap this in a `main`
 
-input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata/dutch_small"
-outdir = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/samples"
+input_path = "datasets/wikidata/dutch_small"
+outdir = "datasets/samples"
 number_per = 10
 size = 100
 graph_sample(input_path, outdir, number_per, size)          
