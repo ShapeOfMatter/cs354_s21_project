@@ -17,71 +17,51 @@ def true_subgraph(G, nodes_to_keep):  # This looks slow...
 
 def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
     N = G.number_of_nodes()
-    seeds = np.random.choice(N, num_seeds, replace=False)
+    nodes_in_samp = set()
+    nodes_not_in_samp = set(range(N))
     coupon_holders = []
-    for seed in seeds:
-        # We want coupon_holders to have num_seeds copies of each seed.
-        # This represents how many coupons have yet to be given out and who holds them.
-        coupon_holders += num_seeds*[seed]
-    
+    G_samp = nx.Graph()
     #MAYBE: we assume people give out coupons in a random order. What do other people assume?
 
-    # technically RDS is supposed to be with replacement but in practice it usually isnt.
-    # We might want to look into this further
-    # https://journals.sagepub.com/doi/pdf/10.1177/0049124108318333?casa_token=H89MMuDxbAAAAAAA:-pxCEqeqN1WzA3Az6aZ1gTh_YRoAIF-4N8OTfugF58uM4ateInh3m733uX27CVkBX_CJCsHAJQ8
-    nodes_in_samp = set(seeds)
-    
-    G_samp = nx.Graph()
-    # it would probably be faster to add all the true_degrees at the end by doing like degDictG = {n: d for n, d in G.degree()}
-    # and then writing that in or sending that baxk seperately
-    G_samp.add_nodes_from([(seed, {"true_degree": G.degree(seed)}) for seed in seeds])
+    def get_seeds():
+        # technically RDS is supposed to be with replacement but in practice it usually isnt.
+        # We might want to look into this further
+        # https://journals.sagepub.com/doi/pdf/10.1177/0049124108318333?casa_token=H89MMuDxbAAAAAAA:-pxCEqeqN1WzA3Az6aZ1gTh_YRoAIF-4N8OTfugF58uM4ateInh3m733uX27CVkBX_CJCsHAJQ8
+        return np.random.choice(list(nodes_not_in_samp), num_seeds, replace=False)
 
-    #copy any other info from G
+    def add_nodes_to_samp(nodes):
+        nodes_in_samp.update(*nodes)
+        nodes_not_in_samp.difference_update(*nodes)
+        # We want coupon_holders to have num_seeds copies of each seed.
+        # This represents how many coupons have yet to be given out and who holds them.
+        coupon_holders.extend(n for n in nodes for _ in range(num_coupons))
+        # it would probably be faster to add all the true_degrees at the end by doing like degDictG = {n: d for n, d in G.degree()}
+        # and then writing that in or sending that baxk seperately
+        G_samp.add_nodes_from([(n, dict(G.nodes[n], # maybe we wanna add a prefix that this is info from before or something?
+                                        true_degree=G.degree(n),
+                                        recruiter="None", # seeds have no recruiter. Use a str to avoid None-value.
+                                        recruits=[]))
+                               for n in nodes])
+        
+    seeds = get_seeds()
+    add_nodes_to_samp(seeds)
 
-    for seed in seeds:
-        for key, value in G.nodes[seed].items():
-            G_samp.nodes[seed][key] = value #maybe we wanna add a prefix that this is info from before or something?
-            #TODO: theres gotta be a faster way than this to copy over the relevant info using some subgraph mechanism
-            # We can make this a string if it messes stuff up to have this None-valued
-            G_samp.nodes[seed]['recruiter'] = "None" # seeds have no recruiter.
-    
     while len(nodes_in_samp) < samp_size:
-        if len(coupon_holders) == 0: #if the referral chains die out
-            # add more seeds
-            potential_new_seeds = set(list(G.nodes)) - nodes_in_samp #get new seeds from the population not including those you have sampled
-            seeds = np.random.choice(list(potential_new_seeds), num_seeds, replace=False)
-            G_samp.add_nodes_from([(seed, {"true_degree": G.degree(seed)}) for seed in seeds])
-            nodes_in_samp = nodes_in_samp | set(seeds) #set union
-
-            for seed in seeds:
-                coupon_holders += num_seeds*[seed]
-                for key, value in G.nodes[seed].items():
-                    G_samp.nodes[seed][key] = value #maybe we wanna add a prefix that this is info from before or something?
-                    G_samp.nodes[seed]['recruiter'] = "None"
+        if len(coupon_holders) == 0:  # if the referral chains die out add more seeds
+            seeds = get_seeds()
+            add_nodes_to_samp(seeds)
 
         recruiter = np.random.choice(coupon_holders)
         coupon_holders.remove(recruiter)
-        neighbors =  [n for n in G[recruiter]] #We know all of egos neighbors
+        neighbors = [n for n in G[recruiter]] #We know all of egos neighbors
         
-        if 'recruits' not in G_samp.nodes[recruiter]:  # TODO: do this in advance.
-            G_samp.nodes[recruiter]['recruits'] = []
-        
-        # So we are going to let them try to add people even if they are already in the sample because it seems thats how its done irl
         if neighbors:
+            # So we are going to let them try to add people even if they are already in the sample because it seems thats how its done irl
             recruit = np.random.choice(neighbors)
             if recruit not in nodes_in_samp:
-                nodes_in_samp.add(recruit)
-                G_samp.add_edge(recruiter, recruit, edge_type='recruited')
-                G_samp.nodes[recruit]['recruits'] = []
-                
-                G_samp.nodes[recruit]["true_degree"] = len(neighbors)  # TODO: THIS IS PROBABLY WRONG?!
-                G_samp.nodes[recruiter]['recruits'].append(recruit)
-                #copy any other info from G
-                for key, value in G.nodes[recruit].items():
-                    G_samp.nodes[recruit][key] = value #maybe we wanna add a prefix that this is info from before or something?
-                    #TODO: theres gotta be a faster way than this to copy over the relevant info using some subgraph mechanism
-                
-                coupon_holders += num_coupons*[recruit]
+                add_nodes_to_samp((recruit,))
+                G_samp.add_edge(recruiter, recruit, edge_type='recruited')  # Do we want this
+                G_samp.nodes[recruiter]['recruits'].append(recruit)         # in our data?
 
     # Now we want to add the rest of the edges
     # This is really janky, if we end up using this module instead of some elses this could def be sped up
@@ -147,9 +127,11 @@ def graph_sample_helper(info):
         nx.write_gpickle(G_samp, outpath)
         print(f"{outpath} should be made by now.")
 
-          
+ 
+# TODO: take cli arguments and wrap this in a `main`
+
 input_path = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/wikidata/dutch_small"
 outdir = "/Users/samrosenblatt/Documents/UVM/Deep_Learning/cs354_s21_project/datasets/samples"
 number_per = 10
 size = 100
-graph_sample(input_path,outdir,number_per,size)          
+graph_sample(input_path, outdir, number_per, size)          
