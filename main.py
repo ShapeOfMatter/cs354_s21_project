@@ -7,7 +7,7 @@ import os
 import os.path as path
 
 from train_gcn.dgldataset import get_train_test_dataloaders
-from train_gcn.model import GCN
+from train_gcn.model import GCN, make_tagcn, RELU
 from train_gcn.state_classes import Settings
 from train_gcn.train import epoch, make_criterion, make_optimizer
 
@@ -20,7 +20,9 @@ def main(settings: Settings):
     print("settings.max_batch_size: ", settings.max_batch_size)
     
     train_dataloader, test_dataloader = get_train_test_dataloaders(settings)
-    model = GCN(2, 4, 2) #dim of node data, conv filter size, number of classes.
+    input_width = 1  # TODO: HOW MANY NODE ATTRIBUTES ARE THERE?
+    output_width = 13  # TODO: HOW MANY CLASSES ARE THERE?
+    model = make_tagcn(input_width, 5, 5, output_width, radius=5, nonlinearity=RELU)
     criterion = make_criterion()
     optimizer = make_optimizer(settings.training_profile, model)
     

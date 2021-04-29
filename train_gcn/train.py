@@ -1,13 +1,13 @@
 from dgl.dataloading import GraphDataLoader
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam, Optimizer
 from typing import Callable
 
-from train_gcn.model import GCN
 from train_gcn.state_classes import AdamTrainingProfile, TrainingProfile
     
-def make_optimizer(profile: TrainingProfile, model: GCN) -> Optimizer:
+def make_optimizer(profile: TrainingProfile, model: nn.Module) -> Optimizer:
     if isinstance(profile, AdamTrainingProfile):
         return Adam(model.parameters(),
                     lr=profile.learning_rate,
@@ -25,7 +25,7 @@ def make_criterion() -> Criterion:
 
 def train(epoch_name: str,
           data: GraphDataLoader,
-          model: GCN,
+          model: nn.Module,
           optimizer: Optimizer,
           criterion: Criterion
           ) -> None:
@@ -40,7 +40,7 @@ def train(epoch_name: str,
 
 def test(epoch_name: str,
          data: GraphDataLoader,
-         model: GCN
+         model: nn.Module
          ) -> float:  # returns accuracy
     model.eval()  # disable learning-only behavior
     with torch.no_grad(): # skip computation of gradients
@@ -55,7 +55,7 @@ def test(epoch_name: str,
 def epoch(name: str,
           training_data: GraphDataLoader,
           testing_data: GraphDataLoader,
-          model: GCN,
+          model: nn.Module,
           optimizer: Optimizer,
           criterion: Criterion
           ) -> float:  # returns the accuracy.
