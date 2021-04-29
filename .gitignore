@@ -1,4 +1,5 @@
 *.zip
+*.gz
 *.csv
 REDDIT-MULTI-*.txt
 install_dependencies.edited.bash
