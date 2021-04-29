@@ -10,11 +10,6 @@ import pandas as pd
 import shutil
 import traceback
 
-def true_subgraph(G, nodes_to_keep):  # This looks slow...
-    G_sub = G.copy(as_view=False)
-    G_sub.remove_nodes_from([n for n in G if n not in set(nodes_to_keep)])
-    return G_sub
-
 def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
     N = G.number_of_nodes()
     nodes_in_samp = set()
@@ -29,7 +24,7 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
         # https://journals.sagepub.com/doi/pdf/10.1177/0049124108318333?casa_token=H89MMuDxbAAAAAAA:-pxCEqeqN1WzA3Az6aZ1gTh_YRoAIF-4N8OTfugF58uM4ateInh3m733uX27CVkBX_CJCsHAJQ8
         return np.random.choice(list(nodes_not_in_samp), num_seeds, replace=False)
 
-    def add_nodes_to_samp(nodes):
+    def add_nodes_to_samp(nodes, distance_to_seed):
         nodes_in_samp.update(nodes)
         nodes_not_in_samp.difference_update(nodes)
         # We want coupon_holders to have num_seeds copies of each seed.
@@ -39,17 +34,17 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
         # and then writing that in or sending that baxk seperately
         G_samp.add_nodes_from([(n, dict(G.nodes[n], # maybe we wanna add a prefix that this is info from before or something?
                                         true_degree=G.degree(n),
-                                        recruiter="None", # seeds have no recruiter. Use a str to avoid None-value.
-                                        recruits=[]))
+                                        distance_to_seed=distance_to_seed,
+                                        recruits=0))
                                for n in nodes])
         
     seeds = get_seeds()
-    add_nodes_to_samp(seeds)
+    add_nodes_to_samp(seeds, 0)
 
     while len(nodes_in_samp) < samp_size:
         if len(coupon_holders) == 0:  # if the referral chains die out add more seeds
             seeds = get_seeds()
-            add_nodes_to_samp(seeds)
+            add_nodes_to_samp(seeds, 0)
 
         recruiter = np.random.choice(coupon_holders)
         coupon_holders.remove(recruiter)
@@ -59,16 +54,15 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
             # So we are going to let them try to add people even if they are already in the sample because it seems thats how its done irl
             recruit = np.random.choice(neighbors)
             if recruit not in nodes_in_samp:
-                add_nodes_to_samp((recruit,))
-                G_samp.add_edge(recruiter, recruit, edge_type='recruited')  # Do we want this
-                G_samp.nodes[recruiter]['recruits'].append(recruit)         # in our data?
+                # was previously setting true-degree as degree of parent/recrutier.
+                add_nodes_to_samp((recruit,), G_samp.nodes[recruiter]['distance_to_seed'] + 1)
+                G_samp.nodes[recruiter]['recruits'] += 1
 
     # Now we want to add the rest of the edges
-    # This is really janky, if we end up using this module instead of some elses this could def be sped up
-    G_sub = true_subgraph(G, nodes_in_samp)
-    edges_to_add = set(G_sub.edges())-set(G_samp.edges())
-    G_samp.add_edges_from(edges_to_add)
-    
+    for node in nodes_in_samp:
+        neighbors = {n for n in G[node]} & nodes_in_samp
+        G_samp.add_edges_from((node, neighbor) for neighbor in neighbors)
+
     return G_samp
 
 def graph_sample(input_path, outdir, number_per, size):
