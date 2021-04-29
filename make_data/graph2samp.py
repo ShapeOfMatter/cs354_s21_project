@@ -10,6 +10,8 @@ import pandas as pd
 import shutil
 import traceback
 
+RECRUITMENT_EDGE_KEY = 'r'
+
 def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
     N = G.number_of_nodes()
     nodes_in_samp = set()
@@ -24,7 +26,7 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
         # https://journals.sagepub.com/doi/pdf/10.1177/0049124108318333?casa_token=H89MMuDxbAAAAAAA:-pxCEqeqN1WzA3Az6aZ1gTh_YRoAIF-4N8OTfugF58uM4ateInh3m733uX27CVkBX_CJCsHAJQ8
         return np.random.choice(list(nodes_not_in_samp), num_seeds, replace=False)
 
-    def add_nodes_to_samp(nodes, distance_to_seed):
+    def add_nodes_to_samp(nodes, recruiter):
         nodes_in_samp.update(nodes)
         nodes_not_in_samp.difference_update(nodes)
         # We want coupon_holders to have num_seeds copies of each seed.
@@ -34,9 +36,12 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
         # and then writing that in or sending that baxk seperately
         G_samp.add_nodes_from([(n, dict(G.nodes[n], # maybe we wanna add a prefix that this is info from before or something?
                                         true_degree=G.degree(n),
-                                        distance_to_seed=distance_to_seed,
+                                        distance_to_seed=(G_samp.nodes[recruiter]['distance_to_seed'] + 1)
+                                                         if recruiter else 0,
                                         recruits=0))
                                for n in nodes])
+        # I'm 90% sure this won't get overwritten when the other edges are added:
+        G_samp.add_edge(recruiter, recruit, **{RECRUITMENT_EDGE_KEY: True})
         
     seeds = get_seeds()
     add_nodes_to_samp(seeds, 0)
@@ -55,7 +60,7 @@ def get_rds(G, num_seeds=1, num_coupons=3, samp_size=100, keep_labels = False):
             recruit = np.random.choice(neighbors)
             if recruit not in nodes_in_samp:
                 # was previously setting true-degree as degree of parent/recrutier.
-                add_nodes_to_samp((recruit,), G_samp.nodes[recruiter]['distance_to_seed'] + 1)
+                add_nodes_to_samp((recruit,), recruiter)
                 G_samp.nodes[recruiter]['recruits'] += 1
 
     # Now we want to add the rest of the edges
