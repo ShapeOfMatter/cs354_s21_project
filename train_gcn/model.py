@@ -37,7 +37,7 @@ class RelationalTAGConv(nn.Module):
         self.kernels = nn.ModuleDict({attribute: TAGConv(width_in,
                                                          width_out,
                                                          k=radius,
-                                                         activation=(nn.ReLU if False else None))
+                                                         activation=(nn.ReLU() if use_relu else None))
                                       for (attribute, width_out) in attribute_output_widths.items()})
 
     @staticmethod
