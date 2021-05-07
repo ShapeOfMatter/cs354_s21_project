@@ -48,7 +48,7 @@ def test(epoch_name: str,
          label: str
          ) -> float:  # returns accuracy
     model.eval()  # disable learning-only behavior
-    with torch.no_grad(): # skip computation of gradients
+    with torch.no_grad():  # skip computation of gradients
         def correct(batched_graph, labels):
             if label == 'RelGraphConv':
                 pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['attr'].int())
@@ -68,8 +68,8 @@ def epoch(name: str,
           criterion: Criterion,
           label: str
           ) -> float:  # returns the accuracy.
-    train(name, training_data, model, optimizer, criterion,label)
-    accuracy = test(name, testing_data, model,label)
+    train(name, training_data, model, optimizer, criterion, label)
+    accuracy = test(name, testing_data, model, label)
     print(f'Epoch {name} has accuracy {100 * accuracy :.6} against the test data.')
     return accuracy
 

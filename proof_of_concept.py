@@ -48,7 +48,7 @@ class SyntheticDataset(DGLDataset):
                                     dim=1).float()
             self.graphs.append(g)
             self.labels.append(c)
-        
+
     def __getitem__(self, i) -> Tuple:
         return self.graphs[i], self.labels[i]
 
@@ -58,11 +58,11 @@ class SyntheticDataset(DGLDataset):
 def demonstrate_learning(models: Mapping[str, Module],
                          factory: Factory,
                          node_attrs: Sequence[str],
-                         edge_attrs: Sequence[str], 
+                         edge_attrs: Sequence[str],
                          train_data_len: int = 200,
                          epochs: int = 25,
                          test_data_len: int = 200
-                        ) -> None:
+                         ) -> None:
     """Train the models and plot their accuracy."""
     accuracies: Mapping[str, List[float]] = {name: [] for name in models.keys()}
     batch_size = next(n for n in range(20, 0, -1) if (train_data_len % n) == 0 and (test_data_len % n) == 0)  # It's just 20.
@@ -90,7 +90,7 @@ def demonstrate_learning(models: Mapping[str, Module],
             print('.', end='', flush=True)
     print()
     plt.figure(figsize=(12, 7))
-    for (i, (style, (name, accuracy))) in enumerate(zip(cycle(['-','--','-.',':']), accuracies.items())):
+    for (i, (style, (name, accuracy))) in enumerate(zip(cycle(['-', '--', '-.', ':']), accuracies.items())):
         plt.plot(accuracy,
                  label=name,
                  alpha=0.75,
@@ -116,7 +116,7 @@ def test(data: GraphDataLoader,
          model: Module
          ) -> float:  # returns accuracy
     model.eval()  # disable learning
-    with no_grad(): # skip computation of gradients
+    with no_grad():  # skip computation of gradients
         def correct(batched_graph, labels) -> int:
             pred = model(batched_graph, batched_graph.ndata['tensor'])
             return (pred.argmax(1) == labels).sum().item()
@@ -124,7 +124,7 @@ def test(data: GraphDataLoader,
         num_tests = sum(len(labels) for batched_graph, labels in data)
         accuracy = num_correct / num_tests
     return accuracy
-        
+
 def epoch(training_data: GraphDataLoader,
           testing_data: GraphDataLoader,
           model: Module,
@@ -212,7 +212,7 @@ def relation_topology_factory(arg1: bool, arg2: bool) -> DiGraph:
     def is_selected(n: int, ns: Sequence[int]) -> bool:
         """If arg2, select the smaller of the neighbors, else select the larger."""
         return (n == max(ns, key=lambda _n: cs[_n])) != arg2
-    
+
     g = DiGraph()
     for (n, c) in enumerate(cs):
         g.add_node(n, c=c)
