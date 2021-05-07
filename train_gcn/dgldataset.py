@@ -7,6 +7,7 @@ import torch
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 from typing import Sequence, Tuple
+import glob
 
 from train_gcn.state_classes import Settings
 
@@ -118,6 +119,8 @@ def make_dataloader(use_indices: Sequence[int],  # used to split test/train data
 
 def get_train_test_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoader]:
     # This can probably be rebuilt from scratch for the new data.
+    master_dir = "datasets/samples"
+    
     test_train_splitter = np.random.default_rng(seed=settings.deterministic_random_seed)
     train_indices = list(test_train_splitter.choice(np.arange(5000),size = 4000))  #numbers from old data
     test_indices = list(np.array(list(set(range(5000)) - set(train_indices))))
@@ -132,3 +135,68 @@ def get_train_test_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, Gra
     return train_dataloader, test_dataloader
     
 
+class WikiDataset(DGLDataset):
+    def __init__(self, master_dir,val_year = None):
+        self.master_dir = master_dir
+        self.val_year = val_year
+        super().__init__(name = 'WikiDataset')
+        
+    def process(self):
+        self.graphs = []
+        self.full_labels = []
+        self.years = []
+        self.labels = []
+        img_paths = glob.glob(self.master_dir+'/*wiki*/*')
+        for path in img_paths:
+            try:
+                path_info = path.replace('\\','/').split('/')
+                full_label = path_info[2]
+                label = full_label.split('.')[0]
+                year = full_label.split('.')[-1][0:4]
+                G_nx = nx.read_gpickle(path)
+                
+                # Should already be digraph but it isnt.
+                G_nx = G_nx.to_directed()
+                #TODO: The first possibility in this OR should never happen, but it does.That means there is a bug in graph2samp.py where some people dont get assigned 'recruiter'
+                
+                # Are we no longer tracking is_seed?
+                #for node in G_nx.nodes:
+                #    if ('recruites' not in G_nx.nodes[node].keys()) or G_nx.nodes[node]['recruites'] == "None" :
+                #        G_nx.nodes[node]['is_seed'] = 1
+                #    else:
+                #        G_nx.nodes[node]['is_seed'] = 0
+                        
+                # Relational conv uses edge bidirection as a feature
+                edge_bidirection = [1 if G_nx.has_edge(v,u) else 0 for u,v in G_nx.edges]
+                i = 0
+                for edge in G_nx.edges:
+                    G_nx.edges[edge]['is_bidirected'] = edge_bidirection[i]
+                    i += 1
+                
+                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed","recruits"], edge_attrs=['is_bidirected'])
+                # Combine all node attributes into a large tensor. 
+                node_attr =[torch.reshape(g.ndata[key],(len(G_nx.nodes),1)) for key in g.ndata.keys()]
+                g.ndata['attr'] = torch.cat(node_attr,1)
+                g.edata['attr'] = torch.reshape(g.edata['is_bidirected'], (len(G_nx.edges),1))
+                
+                self.graphs.append(g)
+                self.full_labels.append(full_label)
+                self.years.append(year)
+                self.labels.append(label)
+            except:
+                print('Could not load graph from file',path)
+            
+        if self.val_year == None:
+            self.val_year = max(self.years)
+        self.length = len(self.years)
+        #n_graphs_train_test = len(year - len)
+        
+        val_mask = torch.tensor(np.array(self.years) == self.val_year)
+        train_mask = torch.tensor(np.random.choice([False, True], size=self.length, p=[.2, .8]))
+        train_mask = torch.where(val_mask == True,torch.tensor([False]*self.length),train_mask)
+        test_mask = torch.where(torch.logical_and((train_mask == False),(val_mask == False)),torch.tensor([True]*self.length),torch.tensor([False]*self.length))
+        print(train_mask)
+        print(test_mask)
+        print(val_mask)
+        
+WikiDataset(master_dir = "..\datasets\samples")
