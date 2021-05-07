@@ -21,29 +21,30 @@ def check_file_blocks(*files: str):
 
 
 def main(settings: Settings):
-    input_width = 2  # TODO: HOW MANY NODE ATTRIBUTES ARE THERE?
+    node_attributes = ('true_degree', 'distance_to_seed')
     output_width = 2  # TODO: HOW MANY CLASSES ARE THERE?
-
-    num_rels = 2  # TODO: HOW MANY TYPES EDGE RELATIONSHIPS ARE THERE?
+    edge_attributes = ('f',  # forward
+                       'b',  # backward
+                       'r')  # recruitment (a sub-set of forward)
 
     # Most basic GCN
     print('Starting basic GCN \n')
-    model = GCN(input_width, 16, output_width)
+    model = GCN(len(node_attributes), 16, output_width)
     train_model(settings, model, 'GCN')
 
     # RelGraphConv. Relations is boolean for bidirected.
     print('Starting RelGraphConv')
-    model = RelGraphConvN(input_width, 16, output_width, num_rels)
+    model = RelGraphConvN(len(node_attributes), 16, output_width, len(edge_attributes))
     train_model(settings, model, 'RelGraphConv')
 
     # TAGConv
     print('Starting TAGConv \n')
-    model = TAGConvN(input_width, 16, output_width)
+    model = TAGConvN(len(node_attributes), 16, output_width)
     train_model(settings, model, 'TAGConv')
 
     # TAGGCM
     print('Starting TAG GCN \n')
-    # model = make_tagcn(input_width, 5, 5, output_width, radius=5, nonlinearity=RELU)
+    # model = make_tagcn(len(node_attributes), 5, 5, output_width, radius=5, nonlinearity=RELU)
 
     # This runs, but not sure I understand the arguments for RelationalTAGConv.
     model = Sequential(RelationalTAGConv(radius=2, width_in=2, attr=8), TAGConv(8, 4, k=0), AvgPooling())
