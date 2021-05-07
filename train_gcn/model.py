@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 import dgl
-from dgl.nn.pytorch import GraphConv, TAGConv
+from dgl.nn.pytorch import GraphConv, TAGConv, RelGraphConv
 from dgl import udf
 import torch.nn.functional as F
 from typing import Callable
+
 
 
 class GCN(nn.Module):
@@ -17,8 +18,44 @@ class GCN(nn.Module):
         h = self.conv1(g, in_feat)
         h = F.relu(h)
         h = self.conv2(g, h)
+        h = F.relu(h)
         g.ndata['h'] = h
         return dgl.mean_nodes(g, 'h')
+    
+
+    
+class RelGraphConvN(nn.Module):
+    def __init__(self, in_feats, h_feats, num_classes,num_rels):
+        super(RelGraphConvN, self).__init__()
+        self.conv1 = RelGraphConv(in_feats, h_feats,num_rels = num_rels,regularizer = 'basis')
+        self.conv2 = RelGraphConv(h_feats, num_classes,num_rels = num_rels, regularizer ='basis')
+
+    def forward(self, g, in_feat, etypes):
+        # Original implementation uses dropout.
+        # know num rels = 1 before hand. 
+        h = self.conv1(g, in_feat,etypes.flatten())
+        h = F.relu(h)
+        h = self.conv2(g, h,etypes.flatten())
+        h = F.relu(h)
+        g.ndata['h'] = h
+        return dgl.mean_nodes(g, 'h')
+    
+
+class TAGConvN(nn.Module):
+    def __init__(self, in_feats, h_feats, num_classes):
+        super(TAGConvN, self).__init__()
+        self.conv1 = TAGConv(in_feats, h_feats)
+        self.conv2 = TAGConv(h_feats, num_classes)
+
+    def forward(self, g, in_feat):
+        # Original implementation uses dropout.
+        h = self.conv1(g, in_feat)
+        h = F.relu(h)
+        h = self.conv2(g, h)
+        h = F.relu(h)
+        g.ndata['h'] = h
+        return dgl.mean_nodes(g, 'h')
+    
 
 def make_tagcn(*widths: int, radius: int, use_bias: bool = True, nonlinearity = None):
     """Will make a stack of TAGCNNs `len(widths)-1` high."""
@@ -26,7 +63,23 @@ def make_tagcn(*widths: int, radius: int, use_bias: bool = True, nonlinearity = 
                            for (w_in, w_out)
                            in zip(widths, widths[1:])))
 
-
+#class RTAGConvN():
+#    def __init__(self, in_feats, h_feats, num_classes, radius):
+#        super(RTAGConvN,self).__init__()
+#        #self.conv1 = RelationalTAGConv(in_feats, h_feats, radius)
+#        self.conv1 = RelationalTAGConv(radius=radius, width_in=in_feats, selected=4, not_selected=4)
+#        self.conv2 = TAGConv(h_feats,num_classes,radius)
+        
+#    def forward(self, g, in_feat):
+        # Original implementation uses dropout.
+#        h = self.conv1(g, in_feat)
+#        h = F.relu(h)
+#        h = self.conv2(g, h)
+#        h = F.relu(h)
+#        g.ndata['h'] = h
+#        return dgl.mean_nodes(g, 'h')
+    
+    
 class RelationalTAGConv(nn.Module):
     def __init__(self, *, radius: int, width_in: int, use_relu: bool = True, **attribute_output_widths: int):
         """
@@ -57,4 +110,4 @@ class RelationalTAGConv(nn.Module):
               for (r, k) in self.kernels.items()]  # the order should be deterministic.
         return torch.cat(hs, dim=1)  # This was kinda a guess, but to the best of my ability to inspect what's happening it's correct!
         
-
+RELU = F.relu 

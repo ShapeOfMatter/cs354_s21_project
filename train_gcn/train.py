@@ -27,12 +27,16 @@ def train(epoch_name: str,
           data: GraphDataLoader,
           model: nn.Module,
           optimizer: Optimizer,
-          criterion: Criterion
+          criterion: Criterion,
+          label: str
           ) -> None:
     model.train()  # enable learning-only behavior
     for batched_graph, labels in data:
         optimizer.zero_grad()
-        pred = model(batched_graph, batched_graph.ndata['attr'].float())
+        if label == 'RelGraphConv':
+            pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['attr'].int())
+        else:
+            pred = model(batched_graph, batched_graph.ndata['attr'].float())
         loss = criterion(pred, labels)
         loss.backward()
         optimizer.step()
@@ -40,12 +44,16 @@ def train(epoch_name: str,
 
 def test(epoch_name: str,
          data: GraphDataLoader,
-         model: nn.Module
+         model: nn.Module,
+         label: str
          ) -> float:  # returns accuracy
     model.eval()  # disable learning-only behavior
     with torch.no_grad(): # skip computation of gradients
         def correct(batched_graph, labels):
-            pred = model(batched_graph, batched_graph.ndata['attr'].float())
+            if label == 'RelGraphConv':
+                pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['attr'].int())
+            else:
+                pred = model(batched_graph, batched_graph.ndata['attr'].float())
             return (pred.argmax(1) == labels).sum().item()
         num_correct = sum(correct(batched_graph, labels) for batched_graph, labels in data)
         num_tests = sum(len(labels) for batched_graph, labels in data)
@@ -57,10 +65,11 @@ def epoch(name: str,
           testing_data: GraphDataLoader,
           model: nn.Module,
           optimizer: Optimizer,
-          criterion: Criterion
+          criterion: Criterion,
+          label: str
           ) -> float:  # returns the accuracy.
-    train(name, training_data, model, optimizer, criterion)
-    accuracy = test(name, testing_data, model)
+    train(name, training_data, model, optimizer, criterion,label)
+    accuracy = test(name, testing_data, model,label)
     print(f'Epoch {name} has accuracy {100 * accuracy :.6} against the test data.')
     return accuracy
 

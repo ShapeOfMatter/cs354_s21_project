@@ -7,7 +7,10 @@ import os
 import os.path as path
 
 from train_gcn.dgldataset import get_train_test_dataloaders
-from train_gcn.model import GCN, make_tagcn, RELU
+from train_gcn.model import GCN, make_tagcn, RelGraphConvN, RELU ,RelationalTAGConv, TAGConvN
+from dgl.nn.pytorch import TAGConv 
+from dgl.nn.pytorch.utils import Sequential
+from dgl.nn.pytorch.glob import AvgPooling
 from train_gcn.state_classes import Settings
 from train_gcn.train import epoch, make_criterion, make_optimizer
 
@@ -16,13 +19,40 @@ def check_file_blocks(*files: str):
     return not any(path.exists(f) for f in files)
 
 def main(settings: Settings):
+    input_width = 2  # TODO: HOW MANY NODE ATTRIBUTES ARE THERE?
+    output_width = 2  # TODO: HOW MANY CLASSES ARE THERE?
+    
+    num_rels = 2 # # TODO: HOW MANY TYPES EDGE RELATIONSHIPS ARE THERE?
+    
+    # Most basic GCN
+    print('Starting basic GCN \n')
+    model = GCN(input_width,16,output_width)
+    train_model(settings,model,'GCN')
+    
+    # RelGraphConv. Relations is boolean for bidirected.
+    print('Starting RelGraphConv')
+    model = RelGraphConvN(input_width,16,output_width,num_rels)
+    train_model(settings,model,'RelGraphConv')
+    
+    # TAGConv
+    print('Starting TAGConv \n')
+    model = TAGConvN(input_width,16,output_width)
+    train_model(settings,model,'TAGConv')
+    
+    # TAGGCM
+    print('Starting TAG GCN \n')
+    #model = make_tagcn(input_width, 5, 5, output_width, radius=5, nonlinearity=RELU)
+    
+    # This runs, but not sure I understand the arguments for RelationalTAGConv.
+    model = Sequential(RelationalTAGConv(radius=2, width_in=2, attr=8), TAGConv(8, 4, k=0), AvgPooling())
+    train_model(settings,model,'TAG_GCN')
+            
+def train_model(settings,model,label):
     os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE" # Fix for crashing.
     print("settings.max_batch_size: ", settings.max_batch_size)
-    
     train_dataloader, test_dataloader = get_train_test_dataloaders(settings)
-    input_width = 1  # TODO: HOW MANY NODE ATTRIBUTES ARE THERE?
-    output_width = 13  # TODO: HOW MANY CLASSES ARE THERE?
-    model = make_tagcn(input_width, 5, 5, output_width, radius=5, nonlinearity=RELU)
+
+    
     criterion = make_criterion()
     optimizer = make_optimizer(settings.training_profile, model)
     
@@ -37,11 +67,12 @@ def main(settings: Settings):
                              testing_data=test_dataloader,
                              model=model,
                              optimizer=optimizer,
-                             criterion=criterion)
+                             criterion=criterion,
+                             label = label)
         # TODO: log stats
         if new_accuracy >= best_accuracy:
             print(f'  Saving weights!')
-            torch.save(model.state_dict(), settings.model_filename)
+            torch.save(model.state_dict(), settings.model_filename + label)
 
 if __name__ == "__main__":
     main(Settings.load(sys.argv[1]))

@@ -57,17 +57,24 @@ class SyntheticDataset(DGLDataset):
                         else:
                             G_nx.nodes[node]['is_seed'] = 0
 
-                    G_nx = true_subgraph(G_nx, max(nx.connected_components(G_nx), key=len) )
+                    #G_nx = true_subgraph(G_nx, max(nx.connected_components(G_nx), key=len) )
                     
                     num_nodes = G_nx.number_of_nodes()
-                    directed_G_nx = G_nx.to_directed()  # Is the graph [supposed to be] directed?
+                    G_nx = G_nx.to_directed()  # Is the graph [supposed to be] directed?
                     #TODO: Implement "dist_from_seed" attr and include here:
-                    g = dgl.from_networkx(directed_G_nx, node_attrs=["true_degree", "is_seed"])
+                    edge_bidirection = [1 if G_nx.has_edge(v,u) else 0 for u,v in G_nx.edges]
+                    i = 0
+                    for edge in G_nx.edges:
+                        G_nx.edges[edge]['is_bidirected'] = edge_bidirection[i]
+                        i += 1
+                    
+                    g = dgl.from_networkx(G_nx, node_attrs=["true_degree", "is_seed"], edge_attrs=['is_bidirected'])
                     # This does nothing?
-                    [e for e in (g.edges()[1],g.edges()[0])]
+                    #[e for e in (g.edges()[1],g.edges()[0])]
                     #TODO: Double check that the above does indeed get read into dgl.graph as having bi-drected edges
                     g.ndata['attr'] = torch.cat((torch.reshape(g.ndata['true_degree'], (len(G_nx.nodes), 1)),
                                                  torch.reshape(g.ndata['is_seed'], (len(G_nx.nodes), 1))), 1)
+                    g.edata['attr'] = torch.reshape(g.edata['is_bidirected'], (len(G_nx.edges),1))
                     self.graphs.append(g)
                     self.labels.append(label)
             print(f"Finished looping on {label}")
