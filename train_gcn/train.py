@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam, Optimizer
-from typing import Callable
+from typing import Callable, Tuple
 
 from train_gcn.state_classes import AdamTrainingProfile, TrainingProfile
     
@@ -29,8 +29,9 @@ def train(epoch_name: str,
           optimizer: Optimizer,
           criterion: Criterion,
           label: str
-          ) -> None:
+          ) -> float:
     model.train()  # enable learning-only behavior
+    floss = 0.0  # not ideal, but unlikely to be confused for a real value.
     for batched_graph, labels in data:
         optimizer.zero_grad()
         if label == 'RelGraphConv':
@@ -40,7 +41,8 @@ def train(epoch_name: str,
         loss = criterion(pred, labels)
         loss.backward()
         optimizer.step()
-        return loss
+        floss = float(loss)
+    return floss
 
 def test(epoch_name: str,
          data: GraphDataLoader,
@@ -67,7 +69,7 @@ def epoch(name: str,
           optimizer: Optimizer,
           criterion: Criterion,
           label: str
-          ) -> float:  # returns the accuracy.
+          ) -> Tuple[float, float]:  # returns the accuracy.
     loss = train(name, training_data, model, optimizer, criterion, label)
     test_accuracy = test(name, testing_data, model, label)
     print(f'Epoch {name} has training loss {loss} and accuracy {100 * test_accuracy :.6} against the test data.')

@@ -5,7 +5,7 @@ from sklearn import preprocessing
 import networkx as nx
 import numpy as np
 import torch
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import RandomSampler
 from tqdm import tqdm
 from typing import Sequence, Tuple
 import glob
@@ -117,7 +117,7 @@ def make_dataloader(use_indices: Sequence[int],  # used to split test/train data
     print("len(dataset): ", len(dataset))
     batch_size = next(n for n in range(max_batch_size, 0, -1) if (len(dataset) % n) == 0)
     print(f'Using batch size {batch_size}.')
-    sampler = SubsetRandomSampler(range(len(dataset)))  #TODO: Get a citation that this is a good choice.
+    sampler = RandomSampler(dataset)
     dataloader = GraphDataLoader(dataset, sampler=sampler, batch_size=batch_size, drop_last=False)
     return dataloader
 
@@ -274,18 +274,19 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     
     # Create the dataloaders. 
     training_loader = GraphDataLoader(train_dataset,
-                                          sampler= SubsetRandomSampler(torch.arange(len(img_paths_train))),
-                                          batch_size=settings.max_batch_size,
-                                          drop_last=False)
+                                      sampler=RandomSampler(train_dataset),
+                                      batch_size=settings.max_batch_size,
+                                      drop_last=False)
     testing_loader = GraphDataLoader(test_dataset,
-                                          sampler=SubsetRandomSampler(torch.arange(len(img_paths_test))),
-                                          batch_size=settings.max_batch_size,
-                                          drop_last=False)
+                                     sampler=RandomSampler(test_dataset),
+                                     batch_size=settings.max_batch_size,
+                                     drop_last=False)
     validation_loader = GraphDataLoader(val_dataset ,
-                                          sampler=SubsetRandomSampler(torch.arange(len(img_paths_val))),
-                                          batch_size=settings.max_batch_size,
-                                          drop_last=False)
+                                        sampler=RandomSampler(val_dataset),
+                                        batch_size=settings.max_batch_size,
+                                        drop_last=False)
     return training_loader, testing_loader, validation_loader
 
 if __name__ == '__main__':
     get_dataloaders(Settings.load('../'+sys.argv[1]))
+

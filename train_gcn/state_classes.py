@@ -58,7 +58,6 @@ class Settings(_Settings):
     num_samples: int
     sample_size: int
     epochs: int
-    model_filename: str
     master_dir: str
     val_year: int
     reduce_datasize: int
