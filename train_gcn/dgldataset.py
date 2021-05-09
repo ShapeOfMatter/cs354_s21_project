@@ -254,13 +254,13 @@ def get_dataloaders(master_dir = "datasets\samples", val_year = 2013, batch_size
     
     # Gather paths for each split
     img_paths = glob.glob(master_dir+'/*wiki*/*')
-    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(val_year)+'*/*')[0:100]
+    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(val_year)+'*/*')
     img_paths_train_test = [path for path in img_paths if path not in img_paths_val]
     # Shuffle test and train s.t. taking a slice gives a random sample.
     np.random.shuffle(img_paths_train_test)
     split = round(len(img_paths_train_test)* 0.8)
-    img_paths_train = img_paths_train_test[0:split][0:100]
-    img_paths_test = img_paths_train_test[split:][0:100]
+    img_paths_train = img_paths_train_test[0:split]
+    img_paths_test = img_paths_train_test[split:]
     
     # Create the datasets using the appropriate path.
     new_process= True
