@@ -40,7 +40,7 @@ def train(epoch_name: str,
         loss = criterion(pred, labels)
         loss.backward()
         optimizer.step()
-        # Log something?
+        return loss
 
 def test(epoch_name: str,
          data: GraphDataLoader,
@@ -68,9 +68,27 @@ def epoch(name: str,
           criterion: Criterion,
           label: str
           ) -> float:  # returns the accuracy.
-    train(name, training_data, model, optimizer, criterion, label)
-    accuracy = test(name, testing_data, model, label)
-    print(f'Epoch {name} has accuracy {100 * accuracy :.6} against the test data.')
-    return accuracy
+    loss = train(name, training_data, model, optimizer, criterion, label)
+    test_accuracy = test(name, testing_data, model, label)
+    print(f'Epoch {name} has training loss {loss} and accuracy {100 * test_accuracy :.6} against the test data.')
+    return loss,test_accuracy * 100
 
+def validate(data: GraphDataLoader,
+         model: nn.Module,
+         label: str
+         ) -> float:  # returns accuracy
+    model.eval()  # disable learning-only behavior
+    with torch.no_grad():  # skip computation of gradients
+        def correct(batched_graph, labels):
+            if label == 'RelGraphConv':
+                pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['encode'].int())
+            else:
+                pred = model(batched_graph, batched_graph.ndata['attr'].float())
+            return (pred.argmax(1) == labels).sum().item()
+        num_correct = sum(correct(batched_graph, labels) for batched_graph, labels in data)
+        num_tests = sum(len(labels) for batched_graph, labels in data)
+        accuracy = num_correct / num_tests
+        print('Validation accuracy:',accuracy)
+    return accuracy * 100
+    
 

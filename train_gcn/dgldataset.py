@@ -10,6 +10,7 @@ from tqdm import tqdm
 from typing import Sequence, Tuple
 import glob
 from pathlib import Path
+import sys
 
 
 from train_gcn.state_classes import Settings
@@ -248,13 +249,12 @@ class WikiDatasets(DGLDataset):
     def sub_graph_choices(self):
         return self._sub_graph_choices
 
-def get_dataloaders(master_dir = "datasets\samples", val_year = 2013, batch_size = 5): 
-    #TODO: add master_dir, val_year, new_process to settings. 
-    
+def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoader, GraphDataLoader]: 
+    master_dir = settings.master_dir
     
     # Gather paths for each split
     img_paths = glob.glob(master_dir+'/*wiki*/*')
-    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(val_year)+'*/*')
+    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(settings.val_year)+'*/*')
     img_paths_train_test = [path for path in img_paths if path not in img_paths_val]
     # Shuffle test and train s.t. taking a slice gives a random sample.
     np.random.shuffle(img_paths_train_test)
@@ -262,26 +262,30 @@ def get_dataloaders(master_dir = "datasets\samples", val_year = 2013, batch_size
     img_paths_train = img_paths_train_test[0:split]
     img_paths_test = img_paths_train_test[split:]
     
+    if settings.reduce_datasize:
+        img_paths_train = img_paths_train[0:1000]
+        img_paths_test = img_paths_test[0:1000]
+        img_paths_val = img_paths_val[0:1000]
+    
     # Create the datasets using the appropriate path.
-    new_process= True
-    train_dataset = WikiDatasets(paths = img_paths_train, new_process=new_process)
-    test_dataset = WikiDatasets(paths = img_paths_test, new_process=new_process)
-    val_dataset = WikiDatasets(paths = img_paths_val, new_process=new_process)
+    train_dataset = WikiDatasets(paths = img_paths_train, new_process=settings.new_process)
+    test_dataset = WikiDatasets(paths = img_paths_test, new_process=settings.new_process)
+    val_dataset = WikiDatasets(paths = img_paths_val, new_process=settings.new_process)
     
     # Create the dataloaders. 
     training_loader = GraphDataLoader(train_dataset,
                                           sampler= SubsetRandomSampler(torch.arange(len(img_paths_train))),
-                                          batch_size=batch_size,
+                                          batch_size=settings.max_batch_size,
                                           drop_last=False)
     testing_loader = GraphDataLoader(test_dataset,
                                           sampler=SubsetRandomSampler(torch.arange(len(img_paths_test))),
-                                          batch_size=batch_size,
+                                          batch_size=settings.max_batch_size,
                                           drop_last=False)
     validation_loader = GraphDataLoader(val_dataset ,
                                           sampler=SubsetRandomSampler(torch.arange(len(img_paths_val))),
-                                          batch_size=batch_size,
+                                          batch_size=settings.max_batch_size,
                                           drop_last=False)
     return training_loader, testing_loader, validation_loader
 
 if __name__ == '__main__':
-    get_dataloaders(master_dir = "..\datasets\samples")
+    get_dataloaders(Settings.load('../'+sys.argv[1]))
