@@ -33,7 +33,6 @@ def main(settings: Settings):
     stats = {}
     
     # Most basic GCN
-    
     print('Starting GCN \n')
     model = GCN(len(node_attributes), 16, output_width)
     stats['GCN'] =  train_model(settings, model, 'GCN')
@@ -54,7 +53,9 @@ def main(settings: Settings):
     # model = make_tagcn(len(node_attributes), 5, 5, output_width, radius=5, nonlinearity=RELU)
 
     # This runs, but not sure I understand the arguments for RelationalTAGConv.
-    model = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), attr=12), TAGConv(12, 9, k=0), AvgPooling())
+    model = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), forward=6, backward=6),
+                       TAGConv(12, 9, k=0),
+                       AvgPooling())
     stats['RTAG_Conv'] = train_model(settings, model, 'RTAG_GCN')
     
     create_plots(stats)
