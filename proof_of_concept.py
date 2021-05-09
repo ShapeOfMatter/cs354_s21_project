@@ -4,7 +4,7 @@ from dgl.dataloading import GraphDataLoader
 from dgl.nn.pytorch.conv import TAGConv
 from dgl.nn.pytorch.glob import AvgPooling
 from dgl.nn.pytorch.utils import Sequential
-from itertools import count, cycle
+from itertools import count, cycle, product
 import matplotlib.pyplot as plt
 from networkx import DiGraph
 from random import shuffle
@@ -144,6 +144,43 @@ def the_dumbest_factory(arg1: bool, arg2: bool) -> DiGraph:
         for n2 in g:
             if int(arg2) == g.nodes[n2]['c']:
                 g.add_edge(n1, n2)
+    return g
+
+def scratch1(a: bool, b: bool) -> DiGraph:
+    c_key, s_key = 'c', 's'
+    g = DiGraph()
+    for (n, c) in enumerate(range(3)):
+        g.add_node(n, **{c_key: c})
+    for (n1, n2) in product(g, g):
+        if n1 <= n2:
+            g.add_edge(n1, n2, **{s_key: int(n1 == n2)})
+    return g
+def scratch2(a: bool, b: bool) -> DiGraph:
+    c_key, s_key = 'c', 's'
+    g = DiGraph()
+    for (n, c) in enumerate(range(300)):
+        g.add_node(n, **{c_key: c})
+    for (n1, n2) in product(g, g):
+        if n1 <= n2:
+            g.add_edge(n1, n2, **{s_key: int(n1 == n2)})
+    return g
+def scratch3(a: bool, b: bool) -> DiGraph:
+    c_key, s_key = 'c' * 1000, 's' * 1000
+    g = DiGraph()
+    for (n, c) in enumerate(range(3)):
+        g.add_node(n, **{c_key: c})
+    for (n1, n2) in product(g, g):
+        if n1 <= n2:
+            g.add_edge(n1, n2, **{s_key: int(n1 == n2)})
+    return g
+def scratch4(a: bool, b: bool) -> DiGraph:
+    c_key, s_key = 'c' * 1000, 's' * 1000
+    g = DiGraph()
+    for (n, c) in enumerate(range(300)):
+        g.add_node(n, **{c_key: c})
+    for (n1, n2) in product(g, g):
+        if n1 <= n2:
+            g.add_edge(n1, n2, **{s_key: int(n1 == n2)})
     return g
 
 def demo1() -> None:
