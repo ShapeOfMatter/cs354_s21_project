@@ -179,15 +179,15 @@ class WikiDatasets(DGLDataset):
                     
                     original_edges = G_nx.edges
                     for edge in original_edges:
-                        G_nx.edges[edge]['forward'] = True
+                        G_nx.edges[edge]['forward_edge'] = True
                         reverse_edge = edge[1],edge[0]
                         if reverse_edge in G_nx.edges:
-                            G_nx.edges[edge]['backward'] = True
+                            G_nx.edges[edge]['backward_edge'] = True
                         else:
-                            G_nx.edges[edge]['backward'] = False
+                            G_nx.edges[edge]['backward_edge'] = False
                             G_nx.add_edge(reverse_edge[0],reverse_edge[1])
-                            G_nx.edges[reverse_edge]['forward'] = False
-                            G_nx.edges[reverse_edge]['backward'] = True
+                            G_nx.edges[reverse_edge]['forward_edge'] = False
+                            G_nx.edges[reverse_edge]['backward_edge'] = True
                     
                     # Using the code below denotes every edge as bidirectional
                     #for edge in G_nx.edges:
@@ -200,7 +200,7 @@ class WikiDatasets(DGLDataset):
                 # Should be digraph.
                 assert(str(type(G_nx)) == "<class 'networkx.classes.digraph.DiGraph'>"), 'Graph needs to be digraph'
                 
-                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed"], edge_attrs=['forward','backward'])
+                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed"], edge_attrs=['forward_edge','backward_edge'])
                 
                 
                 # Combine all node attributes into a large tensor. 
