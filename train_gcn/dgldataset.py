@@ -1,6 +1,7 @@
 import dgl
 from dgl.data import DGLDataset
 from dgl.dataloading import GraphDataLoader
+from sklearn import preprocessing
 import networkx as nx
 import numpy as np
 import torch
@@ -8,6 +9,8 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 from typing import Sequence, Tuple
 import glob
+from pathlib import Path
+
 
 from train_gcn.state_classes import Settings
 
@@ -135,10 +138,10 @@ def get_train_test_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, Gra
     return train_dataloader, test_dataloader
     
 
-class WikiDataset(DGLDataset):
-    def __init__(self, master_dir,val_year = None):
-        self.master_dir = master_dir
-        self.val_year = val_year
+class WikiDatasets(DGLDataset):
+    def __init__(self, paths, new_process = False):
+        self.paths = paths
+        self.new_process = new_process
         super().__init__(name = 'WikiDataset')
         
     def process(self):
@@ -146,38 +149,74 @@ class WikiDataset(DGLDataset):
         self.full_labels = []
         self.years = []
         self.labels = []
-        img_paths = glob.glob(self.master_dir+'/*wiki*/*')
+        img_paths = self.paths
         for path in img_paths:
+            path_info = path.replace('\\','/').split('/')
+            if '..' in path_info:
+                path_info.remove('..')
             try:
-                path_info = path.replace('\\','/').split('/')
+                try:
+                    # Try to read a preprocessed graph.
+                    assert(self.new_process == False), 'Raise an error since we are forcing new processing of the graphs'
+                    G_nx = nx.read_gpickle(path.replace('samples','processed'))
+                    
+                except:
+                    # Process graph from sample
+                
+                    G_nx = nx.read_gpickle(path) 
+                    
+                    # TODO: Investigate error below. 
+                    # DGLError: There are 0-in-degree nodes in the graph, output for those nodes will be invalid. 
+                    # This is harmful for some applications, causing silent performance regression. 
+                    # Adding self-loop on the input graph by calling `g = dgl.add_self_loop(g)` will resolve the issue. 
+                    # Setting ``allow_zero_in_degree`` to be `True` when constructing this module will suppress the 
+                    # check and let the code run.
+                    
+                    # Currently addressed by adding self loop to networkx graphs
+                    to_add = [(node,node) for node in G_nx.nodes]
+                    G_nx.add_edges_from(to_add)
+                    
+                    original_edges = G_nx.edges
+                    for edge in original_edges:
+                        G_nx.edges[edge]['forward'] = True
+                        reverse_edge = edge[1],edge[0]
+                        if reverse_edge in G_nx.edges:
+                            G_nx.edges[edge]['backward'] = True
+                        else:
+                            G_nx.edges[edge]['backward'] = False
+                            G_nx.add_edge(reverse_edge[0],reverse_edge[1])
+                            G_nx.edges[reverse_edge]['forward'] = False
+                            G_nx.edges[reverse_edge]['backward'] = True
+                    
+                    # Using the code below denotes every edge as bidirectional
+                    #for edge in G_nx.edges:
+                    #    G_nx.edges[edge]['forward'] = True if edge in G_nx.in_edges else False
+                    #    G_nx.edges[edge]['backward'] = True if edge in G_nx.out_edges else False
+                    Path('\\'.join(path.replace('samples','processed').split('\\')[0:-1])).mkdir(parents=True, exist_ok=True)
+                    nx.write_gpickle(G_nx, path.replace('samples','processed'))
+                
+                       
+                # Should be digraph.
+                assert(str(type(G_nx)) == "<class 'networkx.classes.digraph.DiGraph'>"), 'Graph needs to be digraph'
+                
+                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed"], edge_attrs=['forward','backward'])
+                
+                
+                # Combine all node attributes into a large tensor. 
+                node_tensors = [torch.reshape(g.ndata[key],(len(G_nx.nodes),1)) for key in g.ndata.keys()]
+                g.ndata['attr'] = torch.cat(node_tensors,1)
+                
+                edge_tensors = [torch.reshape(g.edata[key],(len(G_nx.edges),1)) for key in g.edata.keys()]
+                g.edata['attr'] = torch.cat(edge_tensors,1)
+                
+                
+                # For relational conv. . Requires |E| length representing class of edge.
+                g.edata['encode'] = g.edata['attr'].int()[:,0] * 2 + g.edata['attr'].int()[:,1] - 1
+                
                 full_label = path_info[2]
                 label = full_label.split('.')[0]
                 year = full_label.split('.')[-1][0:4]
                 G_nx = nx.read_gpickle(path)
-                
-                # Should already be digraph but it isnt.
-                G_nx = G_nx.to_directed()
-                #TODO: The first possibility in this OR should never happen, but it does.That means there is a bug in graph2samp.py where some people dont get assigned 'recruiter'
-                
-                # Are we no longer tracking is_seed?
-                #for node in G_nx.nodes:
-                #    if ('recruites' not in G_nx.nodes[node].keys()) or G_nx.nodes[node]['recruites'] == "None" :
-                #        G_nx.nodes[node]['is_seed'] = 1
-                #    else:
-                #        G_nx.nodes[node]['is_seed'] = 0
-                        
-                # Relational conv uses edge bidirection as a feature
-                edge_bidirection = [1 if G_nx.has_edge(v,u) else 0 for u,v in G_nx.edges]
-                i = 0
-                for edge in G_nx.edges:
-                    G_nx.edges[edge]['is_bidirected'] = edge_bidirection[i]
-                    i += 1
-                
-                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed","recruits"], edge_attrs=['is_bidirected'])
-                # Combine all node attributes into a large tensor. 
-                node_attr =[torch.reshape(g.ndata[key],(len(G_nx.nodes),1)) for key in g.ndata.keys()]
-                g.ndata['attr'] = torch.cat(node_attr,1)
-                g.edata['attr'] = torch.reshape(g.edata['is_bidirected'], (len(G_nx.edges),1))
                 
                 self.graphs.append(g)
                 self.full_labels.append(full_label)
@@ -185,18 +224,64 @@ class WikiDataset(DGLDataset):
                 self.labels.append(label)
             except:
                 print('Could not load graph from file',path)
+                # Convert the label list to tensor for saving.
+        
+        int_labels = preprocessing.LabelEncoder().fit_transform(self.labels)
+        #onehot_labels = preprocessing.OneHotEncoder(sparse = False).fit_transform(int_labels.reshape(len(int_labels),1))
+        self.labels = torch.LongTensor(int_labels)
             
-        if self.val_year == None:
-            self.val_year = max(self.years)
-        self.length = len(self.years)
-        #n_graphs_train_test = len(year - len)
-        
-        val_mask = torch.tensor(np.array(self.years) == self.val_year)
-        train_mask = torch.tensor(np.random.choice([False, True], size=self.length, p=[.2, .8]))
-        train_mask = torch.where(val_mask == True,torch.tensor([False]*self.length),train_mask)
-        test_mask = torch.where(torch.logical_and((train_mask == False),(val_mask == False)),torch.tensor([True]*self.length),torch.tensor([False]*self.length))
-        print(train_mask)
-        print(test_mask)
-        print(val_mask)
-        
-WikiDataset(master_dir = "..\datasets\samples")
+    def __getitem__(self, i):
+        return self.graphs[i], self.labels[i]
+
+    def __len__(self):
+        return len(self.graphs)
+
+    @property
+    def indices(self):
+        return self._indices
+    
+    @property
+    def master_dir(self):
+        return self._master_dir
+    
+    @property
+    def sub_graph_choices(self):
+        return self._sub_graph_choices
+
+def get_dataloaders(master_dir = "datasets\samples", val_year = 2013, batch_size = 5): 
+    #TODO: add master_dir, val_year, new_process to settings. 
+    
+    
+    # Gather paths for each split
+    img_paths = glob.glob(master_dir+'/*wiki*/*')
+    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(val_year)+'*/*')[0:100]
+    img_paths_train_test = [path for path in img_paths if path not in img_paths_val]
+    # Shuffle test and train s.t. taking a slice gives a random sample.
+    np.random.shuffle(img_paths_train_test)
+    split = round(len(img_paths_train_test)* 0.8)
+    img_paths_train = img_paths_train_test[0:split][0:100]
+    img_paths_test = img_paths_train_test[split:][0:100]
+    
+    # Create the datasets using the appropriate path.
+    new_process= True
+    train_dataset = WikiDatasets(paths = img_paths_train, new_process=new_process)
+    test_dataset = WikiDatasets(paths = img_paths_test, new_process=new_process)
+    val_dataset = WikiDatasets(paths = img_paths_val, new_process=new_process)
+    
+    # Create the dataloaders. 
+    training_loader = GraphDataLoader(train_dataset,
+                                          sampler= SubsetRandomSampler(torch.arange(len(img_paths_train))),
+                                          batch_size=batch_size,
+                                          drop_last=False)
+    testing_loader = GraphDataLoader(test_dataset,
+                                          sampler=SubsetRandomSampler(torch.arange(len(img_paths_test))),
+                                          batch_size=batch_size,
+                                          drop_last=False)
+    validation_loader = GraphDataLoader(val_dataset ,
+                                          sampler=SubsetRandomSampler(torch.arange(len(img_paths_val))),
+                                          batch_size=batch_size,
+                                          drop_last=False)
+    return training_loader, testing_loader, validation_loader
+
+if __name__ == '__main__':
+    get_dataloaders(master_dir = "..\datasets\samples")

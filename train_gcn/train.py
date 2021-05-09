@@ -34,7 +34,7 @@ def train(epoch_name: str,
     for batched_graph, labels in data:
         optimizer.zero_grad()
         if label == 'RelGraphConv':
-            pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['attr'].int())
+            pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['encode'].int())
         else:
             pred = model(batched_graph, batched_graph.ndata['attr'].float())
         loss = criterion(pred, labels)
@@ -51,7 +51,7 @@ def test(epoch_name: str,
     with torch.no_grad():  # skip computation of gradients
         def correct(batched_graph, labels):
             if label == 'RelGraphConv':
-                pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['attr'].int())
+                pred = model(batched_graph, batched_graph.ndata['attr'].float(), batched_graph.edata['encode'].int())
             else:
                 pred = model(batched_graph, batched_graph.ndata['attr'].float())
             return (pred.argmax(1) == labels).sum().item()

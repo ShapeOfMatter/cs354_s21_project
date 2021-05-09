@@ -6,7 +6,7 @@ import torch
 import os
 import os.path as path
 
-from train_gcn.dgldataset import get_train_test_dataloaders
+from train_gcn.dgldataset import get_train_test_dataloaders, get_dataloaders
 from train_gcn.model import GCN, make_tagcn, RelGraphConvN, RELU, RelationalTAGConv, TAGConvN
 from dgl.nn.pytorch import TAGConv
 from dgl.nn.pytorch.utils import Sequential
@@ -22,19 +22,19 @@ def check_file_blocks(*files: str):
 
 def main(settings: Settings):
     node_attributes = ('true_degree', 'distance_to_seed')
-    output_width = 2  # TODO: HOW MANY CLASSES ARE THERE?
+    output_width = 9  # TODO: HOW MANY CLASSES ARE THERE?
     edge_attributes = ('f',  # forward
-                       'b',  # backward
-                       'r')  # recruitment (a sub-set of forward)
+                       'b')#,  # backward
+                       #'r')  # recruitment (a sub-set of forward)
 
     # Most basic GCN
-    print('Starting basic GCN \n')
+    #print('Starting basic GCN \n')
     model = GCN(len(node_attributes), 16, output_width)
     train_model(settings, model, 'GCN')
 
-    # RelGraphConv. Relations is boolean for bidirected.
+    # RelGraphConv
     print('Starting RelGraphConv')
-    model = RelGraphConvN(len(node_attributes), 16, output_width, len(edge_attributes))
+    model = RelGraphConvN(len(node_attributes), 16, output_width, 3) # Three combinations of edge direction. 
     train_model(settings, model, 'RelGraphConv')
 
     # TAGConv
@@ -47,15 +47,15 @@ def main(settings: Settings):
     # model = make_tagcn(len(node_attributes), 5, 5, output_width, radius=5, nonlinearity=RELU)
 
     # This runs, but not sure I understand the arguments for RelationalTAGConv.
-    model = Sequential(RelationalTAGConv(radius=2, width_in=2, attr=8), TAGConv(8, 4, k=0), AvgPooling())
+    model = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), attr=12), TAGConv(12, 9, k=0), AvgPooling())
     train_model(settings, model, 'TAG_GCN')
 
 
 def train_model(settings, model, label):
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix for crashing.
     print("settings.max_batch_size: ", settings.max_batch_size)
-    train_dataloader, test_dataloader = get_train_test_dataloaders(settings)
-
+    train_dataloader, test_dataloader, val_dataloader = get_dataloaders(batch_size = settings.max_batch_size)
+    
     criterion = make_criterion()
     optimizer = make_optimizer(settings.training_profile, model)
 
@@ -76,6 +76,8 @@ def train_model(settings, model, label):
         if new_accuracy >= best_accuracy:
             print(f'  Saving weights!')
             torch.save(model.state_dict(), settings.model_filename + label)
+            
+    #TODO: validatation
 
 if __name__ == "__main__":
     main(Settings.load(sys.argv[1]))
