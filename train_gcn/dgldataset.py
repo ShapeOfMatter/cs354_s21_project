@@ -71,8 +71,17 @@ class WikiDatasets(DGLDataset):
                 edge_tensors = [torch.reshape(g.edata[key],(len(G_nx.edges),1)) for key in g.edata.keys()]
                 g.edata['attr'] = torch.cat(edge_tensors,1)
                 
-                # For relational conv. . Requires |E| length representing class of edge.
-                g.edata['encode'] = g.edata['attr'].int()[:,0] * 2 + g.edata['attr'].int()[:,1] - 1
+                # For relational conv. Requires |E| length representing class of edge.
+                f_edge_ints, f_edge_nots = g.edata['forward_edge'].int(),     torch.logical_not(g.edata['forward_edge']).int()
+                b_edge_ints, b_edge_nots = g.edata['backward_edge'].int(),    torch.logical_not(g.edata['backward_edge']).int()
+                r_edge_ints, r_edge_nots = g.edata['recruitment_edge'].int(), torch.logical_not(g.edata['recruitment_edge']).int()
+                g.edata['encode'] = (-1  # yeah, we could just zero-index this calculation from the begining, but this way we can assert something.
+                                     + (1 * f_edge_ints * b_edge_nots * r_edge_nots)  # a forward edge
+                                     + (2 * f_edge_nots * b_edge_ints * r_edge_nots)  # a backward edge
+                                     + (3 * f_edge_ints * b_edge_nots * r_edge_ints)  # a recruitment edge
+                                     + (4 * f_edge_ints * b_edge_ints * r_edge_nots)  # a both-ways edge
+                                     + (5 * f_edge_ints * b_edge_ints * r_edge_ints)  # a both-ways edge that's also a recruitment edge
+                                     )
                 
                 full_label = path_info[2]
                 label = full_label.split('.')[0]
