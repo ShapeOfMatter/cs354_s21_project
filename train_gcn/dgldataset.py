@@ -50,7 +50,10 @@ class WikiDatasets(DGLDataset):
                         reverse_edge = edge[1],edge[0]
                         if reverse_edge in original_edges:
                             G_nx.edges[edge]['backward_edge'] = True
-                            G_nx.edges[edge]['recruitment_edge'] = False # TODO: Why is this missing? Confirm that it should be false.
+                            try:
+                                G_nx.edges[edge]['recruitment_edge'] = G_nx.edges[edge]['recruitment_edge']
+                            except:
+                                G_nx.edges[edge]['recruitment_edge'] = False # For added self loops. 
                         else:
                             G_nx.edges[edge]['backward_edge'] = False
                             G_nx.add_edge(reverse_edge[0],reverse_edge[1])
