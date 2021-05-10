@@ -21,7 +21,7 @@ class WikiDatasets(DGLDataset):
         self.new_process = new_process
         self.graphs: List[dgl.DGLGraph] = []
         self.node_attrs = ["true_degree", "distance_to_seed"]
-        self.edge_attrs = ['forward_edge', 'backward_edge']
+        self.edge_attrs = ['forward_edge', 'backward_edge','recruitment_edge']
         super().__init__(name = 'WikiDataset')
         
     def process(self) -> None:
@@ -48,13 +48,15 @@ class WikiDatasets(DGLDataset):
                     for edge in original_edges:
                         G_nx.edges[edge]['forward_edge'] = True
                         reverse_edge = edge[1],edge[0]
-                        if reverse_edge in G_nx.edges:
+                        if reverse_edge in original_edges:
                             G_nx.edges[edge]['backward_edge'] = True
+                            G_nx.edges[edge]['recruitment_edge'] = False # TODO: Why is this missing? Confirm that it should be false.
                         else:
                             G_nx.edges[edge]['backward_edge'] = False
                             G_nx.add_edge(reverse_edge[0],reverse_edge[1])
                             G_nx.edges[reverse_edge]['forward_edge'] = False
                             G_nx.edges[reverse_edge]['backward_edge'] = True
+                            G_nx.edges[reverse_edge]['recruitment_edge'] = False
                     
                     Path('\\'.join(path.replace('samples','processed').split('\\')[0:-1])).mkdir(parents=True, exist_ok=True)
                     nx.write_gpickle(G_nx, path.replace('samples','processed'))
@@ -147,7 +149,4 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
                                         batch_size=batch_size(len(val_dataset)),
                                         drop_last=False)
     return training_loader, testing_loader, validation_loader
-
-if __name__ == '__main__':
-    get_dataloaders(Settings.load('../'+sys.argv[1]))
 
