@@ -75,13 +75,14 @@ class WikiDatasets(DGLDataset):
                 f_edge_ints, f_edge_nots = g.edata['forward_edge'].int(),     torch.logical_not(g.edata['forward_edge']).int()
                 b_edge_ints, b_edge_nots = g.edata['backward_edge'].int(),    torch.logical_not(g.edata['backward_edge']).int()
                 r_edge_ints, r_edge_nots = g.edata['recruitment_edge'].int(), torch.logical_not(g.edata['recruitment_edge']).int()
-                g.edata['encode'] = (-1  # yeah, we could just zero-index this calculation from the begining, but this way we can assert something.
+                g.edata['encode'] = (-1  # yeah, we could just zero-index this calculation from the begining, but way our assertion is stronger.
                                      + (1 * f_edge_ints * b_edge_nots * r_edge_nots)  # a forward edge
                                      + (2 * f_edge_nots * b_edge_ints * r_edge_nots)  # a backward edge
                                      + (3 * f_edge_ints * b_edge_nots * r_edge_ints)  # a recruitment edge
                                      + (4 * f_edge_ints * b_edge_ints * r_edge_nots)  # a both-ways edge
                                      + (5 * f_edge_ints * b_edge_ints * r_edge_ints)  # a both-ways edge that's also a recruitment edge
                                      )
+                assert -1 < torch.min(g.edata['encode']).item()
                 
                 full_label = path_info[2]
                 label = full_label.split('.')[0]
