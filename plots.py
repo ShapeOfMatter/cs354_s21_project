@@ -26,5 +26,5 @@ def create_plots(stats):
         if len(bar_plot_list) > 0:
             plt.bar(models,bar_plot_list)
             plt.ylabel(stat)
-            plt.gca().yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
+            plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
         plt.show()
