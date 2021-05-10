@@ -89,10 +89,6 @@ class WikiDatasets(DGLDataset):
 
     def __len__(self):
         return len(self.graphs)
-
-    @property
-    def indices(self):
-        return self._indices
     
 
 def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoader, GraphDataLoader]: 
@@ -100,11 +96,11 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     
     # Gather paths for each split
     img_paths = glob.glob(master_dir+'/*wiki*/*')
-    img_paths_val = glob.glob(master_dir+'/*wiki*'+str(settings.val_year)+'*/*')
-    img_paths_train_test = [path for path in img_paths if path not in img_paths_val]
+    img_paths_val = glob.glob(master_dir + '/*wiki*' + str(settings.val_year) + '*/*')
+    img_paths_train_test = [path for path in img_paths if path not in img_paths_val]  # Are we doing 9k linear scans of a 1k-elem array?
     # Shuffle test and train s.t. taking a slice gives a random sample.
     np.random.shuffle(img_paths_train_test)
-    split = round(len(img_paths_train_test)* 0.8)
+    split = round(len(img_paths_train_test) * 0.8)
     img_paths_train = img_paths_train_test[0:split]
     img_paths_test = img_paths_train_test[split:]
     
@@ -118,18 +114,21 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     test_dataset = WikiDatasets(paths = img_paths_test, new_process=settings.new_process)
     val_dataset = WikiDatasets(paths = img_paths_val, new_process=settings.new_process)
     
-    # Create the dataloaders. 
+    # Create the dataloaders.
+    def batch_size(sample_size: int) -> int:
+        divisors = (n for n in range(m, 0, -1) if (sample_size % n) == 0)
+        return next(divisors)
     training_loader = GraphDataLoader(train_dataset,
                                       sampler=RandomSampler(train_dataset),
-                                      batch_size=settings.max_batch_size,
+                                      batch_size=batch_size(len(train_dataset)),
                                       drop_last=False)
     testing_loader = GraphDataLoader(test_dataset,
                                      sampler=RandomSampler(test_dataset),
-                                     batch_size=settings.max_batch_size,
+                                     batch_size=batch_size(len(test_dataset)),
                                      drop_last=False)
     validation_loader = GraphDataLoader(val_dataset ,
                                         sampler=RandomSampler(val_dataset),
-                                        batch_size=settings.max_batch_size,
+                                        batch_size=batch_size(len(val_dataset)),
                                         drop_last=False)
     return training_loader, testing_loader, validation_loader
 
