@@ -19,11 +19,12 @@ def create_plots(stats):
                     plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
                 if stat == 'loss':
                     plt.yscale('log')
-                    plt.ylabel(r'$\Log_{10}$ loss')
+                    plt.ylabel(r'$Log_{10}$ loss')
             else:
                 bar_plot_list.append(to_plot)
                 pass #TODO: add bar graph
         if len(bar_plot_list) > 0:
             plt.bar(models,bar_plot_list)
             plt.ylabel(stat)
+            plt.gca().yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
         plt.show()
