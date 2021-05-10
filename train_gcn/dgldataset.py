@@ -23,7 +23,7 @@ class WikiDatasets(DGLDataset):
         
     def process(self):
         self.graphs = []
-        self.labels = []
+        labels = []
         for path in self.paths:
             path_info = path.replace('\\','/').split('/')
             if '..' in path_info:
@@ -36,7 +36,6 @@ class WikiDatasets(DGLDataset):
                     
                 except:
                     # Process graph from sample
-                
                     G_nx = nx.read_gpickle(path) 
                     
                     # we need to add self-loops for the vanilla GCN. 
@@ -55,19 +54,13 @@ class WikiDatasets(DGLDataset):
                             G_nx.edges[reverse_edge]['forward_edge'] = False
                             G_nx.edges[reverse_edge]['backward_edge'] = True
                     
-                    # Using the code below denotes every edge as bidirectional
-                    #for edge in G_nx.edges:
-                    #    G_nx.edges[edge]['forward'] = True if edge in G_nx.in_edges else False
-                    #    G_nx.edges[edge]['backward'] = True if edge in G_nx.out_edges else False
                     Path('\\'.join(path.replace('samples','processed').split('\\')[0:-1])).mkdir(parents=True, exist_ok=True)
                     nx.write_gpickle(G_nx, path.replace('samples','processed'))
-                
                        
                 # Should be digraph.
                 assert(str(type(G_nx)) == "<class 'networkx.classes.digraph.DiGraph'>"), 'Graph needs to be digraph'
                 
                 g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed"], edge_attrs=['forward_edge','backward_edge'])
-                
                 
                 # Combine all node attributes into a large tensor. 
                 node_tensors = [torch.reshape(g.ndata[key],(len(G_nx.nodes),1)) for key in g.ndata.keys()]
@@ -76,23 +69,19 @@ class WikiDatasets(DGLDataset):
                 edge_tensors = [torch.reshape(g.edata[key],(len(G_nx.edges),1)) for key in g.edata.keys()]
                 g.edata['attr'] = torch.cat(edge_tensors,1)
                 
-                
                 # For relational conv. . Requires |E| length representing class of edge.
                 g.edata['encode'] = g.edata['attr'].int()[:,0] * 2 + g.edata['attr'].int()[:,1] - 1
                 
                 full_label = path_info[2]
                 label = full_label.split('.')[0]
-                year = full_label.split('.')[-1][0:4]
-                G_nx = nx.read_gpickle(path)
                 
                 self.graphs.append(g)
-                self.labels.append(label)
+                labels.append(label)
             except Exception as e:
-                print('Could not load graph from file',path)
+                print('Could not load graph from file', path)
                 raise e
         
-        int_labels = preprocessing.LabelEncoder().fit_transform(self.labels)
-        #onehot_labels = preprocessing.OneHotEncoder(sparse = False).fit_transform(int_labels.reshape(len(int_labels),1))
+        int_labels = preprocessing.LabelEncoder().fit_transform(labels)
         self.labels = torch.LongTensor(int_labels)
             
     def __getitem__(self, i):
@@ -105,13 +94,6 @@ class WikiDatasets(DGLDataset):
     def indices(self):
         return self._indices
     
-    @property
-    def master_dir(self):
-        return self._master_dir
-    
-    @property
-    def sub_graph_choices(self):
-        return self._sub_graph_choices
 
 def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoader, GraphDataLoader]: 
     master_dir = settings.master_dir

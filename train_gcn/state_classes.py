@@ -49,7 +49,6 @@ class Settings(_Settings):
     lock_file: str
     lock_timeout: int
     source_csvs: Tuple[str]
-    sub_graph_choices: Tuple[int]
     deterministic_random_seed: int
     model_filename: str
     training_profile: AdamTrainingProfile
