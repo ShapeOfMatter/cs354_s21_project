@@ -24,23 +24,31 @@ def check_file_blocks(*files: str):
 
 
 def main(settings: Settings):
-    node_attributes = ('true_degree', 'distance_to_seed')
-    output_width = 9  # TODO: HOW MANY CLASSES ARE THERE?
-    edge_attributes = ('f',  # forward
-                       'b')#,  # backward
-                       #'r')  # recruitment (a sub-set of forward)
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix for crashing.
+    print("settings.max_batch_size: ", settings.max_batch_size)
+    train_dataloader, test_dataloader, val_dataloader = get_dataloaders(settings)
 
+    output_width = train_dataloader.dataset.num_labels()  # accessing dataloader.dataset isn't documented as a safe thing to do...
+    assert output_width == test_dataloader.dataset.num_labels() == val_dataloader.dataset.num_labels()
+    print(f'There are {output_width} labels in the data.')
+    node_attributes = train_dataloader.dataset.node_attrs
+    assert node_attributes == test_dataloader.dataset.node_attrs == val_dataloader.dataset.node_attrs
+    printf('Node attributes: ', node_attributes)
+    edge_attributes = train_dataloader.dataset.edge_attrs
+    assert node_attributes == test_dataloader.dataset.edge_attrs == val_dataloader.dataset.edge_attrs
+    printf('Edge attributes: ', edge_attributes)
+    
     stats = {}
     
     # Most basic GCN
     print('Starting GCN \n')
     model = GCN(len(node_attributes), 16, output_width)
     stats['GCN'] =  train_model(settings, model, 'GCN')
-    
 
     # RelGraphConv
     print('Starting RelGraphConv')
-    model = RelGraphConvN(len(node_attributes), 16, output_width, 3) # Three combinations of edge direction. 
+    # We can't parameterize num_rels because it's not a simple function of edge_attrubutes.
+    model = RelGraphConvN(len(node_attributes), 16, output_width, num_rels=3)
     stats['RelGraphConv'] = train_model(settings, model, 'RelGraphConv')
 
     # TAGConv
@@ -48,13 +56,10 @@ def main(settings: Settings):
     model = TAGConvN(len(node_attributes), 16, output_width)
     stats['TAGConv'] = train_model(settings, model, 'TAGConv')
 
-    # TAGGCM
-    print('Starting TAG GCN \n')
-    # model = make_tagcn(len(node_attributes), 5, 5, output_width, radius=5, nonlinearity=RELU)
-
-    # This runs, but not sure I understand the arguments for RelationalTAGConv.
-    model = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), forward_edge=6, backward_edge=6),
-                       TAGConv(12, 9, k=0),
+    # R-TAG-Conv
+    print('Starting Relational TAG-Conv \n')
+    model = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), forward_edge=8, backward_edge=8),
+                       TAGConv(16, output_width, k=0),
                        AvgPooling())
     stats['RTAG_Conv'] = train_model(settings, model, 'RTAG_GCN')
     
@@ -62,10 +67,6 @@ def main(settings: Settings):
     
 
 def train_model(settings, model, label):
-    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix for crashing.
-    print("settings.max_batch_size: ", settings.max_batch_size)
-    train_dataloader, test_dataloader, val_dataloader = get_dataloaders(settings)
-    
     criterion = make_criterion()
     optimizer = make_optimizer(settings.training_profile, model)
 

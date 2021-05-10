@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.utils.data.sampler import RandomSampler
 from tqdm import tqdm
-from typing import Sequence, Tuple
+from typing import List, Sequence, Tuple
 import glob
 from pathlib import Path
 import sys
@@ -19,10 +19,12 @@ class WikiDatasets(DGLDataset):
     def __init__(self, paths: Sequence[str], new_process = False):
         self.paths = paths
         self.new_process = new_process
+        self.graphs: List[dgl.DGLGraph] = []
+        self.node_attrs = ["true_degree", "distance_to_seed"]
+        self.edge_attrs = ['forward_edge', 'backward_edge']
         super().__init__(name = 'WikiDataset')
         
-    def process(self):
-        self.graphs = []
+    def process(self) -> None:
         labels = []
         for path in self.paths:
             path_info = path.replace('\\','/').split('/')
@@ -60,7 +62,7 @@ class WikiDatasets(DGLDataset):
                 # Should be digraph.
                 assert(str(type(G_nx)) == "<class 'networkx.classes.digraph.DiGraph'>"), 'Graph needs to be digraph'
                 
-                g = dgl.from_networkx(G_nx, node_attrs=["true_degree","distance_to_seed"], edge_attrs=['forward_edge','backward_edge'])
+                g = dgl.from_networkx(G_nx, node_attrs=self.node_attrs, edge_attrs=self.edge_attrs)
                 
                 # Combine all node attributes into a large tensor. 
                 node_tensors = [torch.reshape(g.ndata[key],(len(G_nx.nodes),1)) for key in g.ndata.keys()]
@@ -83,12 +85,16 @@ class WikiDatasets(DGLDataset):
         
         int_labels = preprocessing.LabelEncoder().fit_transform(labels)
         self.labels = torch.LongTensor(int_labels)
+        
             
     def __getitem__(self, i):
         return self.graphs[i], self.labels[i]
 
     def __len__(self):
         return len(self.graphs)
+
+    def num_labels(self) -> int:
+        return len(self.labels.unique())
     
 
 def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoader, GraphDataLoader]: 
