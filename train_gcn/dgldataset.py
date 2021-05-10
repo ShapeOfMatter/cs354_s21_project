@@ -122,7 +122,7 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     
     # Create the dataloaders.
     def batch_size(sample_size: int) -> int:
-        divisors = (n for n in range(m, 0, -1) if (sample_size % n) == 0)
+        divisors = (n for n in range(settings.max_batch_size, 0, -1) if (sample_size % n) == 0)
         return next(divisors)
     training_loader = GraphDataLoader(train_dataset,
                                       sampler=RandomSampler(train_dataset),
