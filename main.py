@@ -30,8 +30,8 @@ class Model:
     validation_accuracy: float = np.inf
     def stats(self):
         return {'loss': self.losses,
-                'test accuracy': selfaccuracies,
-                'validation accuracy': self.validation_accuaracy}  # These don't have the same shape?
+                'test accuracy': self.test_accuracies,
+                'validation accuracy': self.validation_accuracy}  # These don't have the same shape?
 
 
 def check_file_blocks(*files: str):
@@ -42,16 +42,11 @@ def check_file_blocks(*files: str):
 def main(settings: Settings):
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix for crashing.
     print("settings.max_batch_size: ", settings.max_batch_size)
-    train_dataloader, test_dataloader, val_dataloader = get_dataloaders(settings)
+    train_dataloader, test_dataloader, val_dataloader, output_width,node_attributes, edge_attributes = get_dataloaders(settings)
 
-    output_width = train_dataloader.dataset.num_labels()  # accessing dataloader.dataset isn't documented as a safe thing to do...
-    assert output_width == test_dataloader.dataset.num_labels() == val_dataloader.dataset.num_labels()
+    # Since dataloaders can not easily access the whole dataset, these calculations are done when the datasets are generated.
     print(f'There are {output_width} labels in the data.')
-    node_attributes = train_dataloader.dataset.node_attrs
-    assert node_attributes == test_dataloader.dataset.node_attrs == val_dataloader.dataset.node_attrs
     print('Node attributes: ', node_attributes)
-    edge_attributes = train_dataloader.dataset.edge_attrs
-    assert node_attributes == test_dataloader.dataset.edge_attrs == val_dataloader.dataset.edge_attrs
     print('Edge attributes: ', edge_attributes)
     
     models: List[Model] = []
@@ -64,7 +59,7 @@ def main(settings: Settings):
 
     # RelGraphConv
     # We can't parameterize num_rels because it's not a simple function of edge_attrubutes.
-    model2 = RelGraphConvN(len(node_attributes), 16, output_width, num_rels=3)
+    model2 = RelGraphConvN(len(node_attributes), 16, output_width, num_rels=5)
     models.append(Model(name='RelGraphConv',
                         model=model2,
                         optimizer=make_optimizer(settings.training_profile, model2)))
@@ -102,9 +97,12 @@ def epoch_all(settings: Settings, models: Sequence[Model], epoch_number: int, *,
                                        optimizer=m.optimizer,
                                        criterion=m.criterion,
                                        label=m.name)
-        if new_loss < min(m.losses):
-            print(f'New lowest loss for {m.name}. Saving weights!')
-            torch.save(m.model.state_dict(), settings.model_filename + m.name)
+        if len(m.losses) == 0:
+            m.losses.append(new_loss)
+        else:
+            if new_loss < min(m.losses):
+                print(f'New lowest loss for {m.name}. Saving weights!')
+                torch.save(m.model.state_dict(), settings.model_filename + m.name)
         m.losses.append(new_loss)
         m.test_accuracies.append(new_accuracy)
 

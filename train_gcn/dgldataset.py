@@ -128,6 +128,7 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     if settings.reduce_datasize:
         img_paths_train = img_paths_train[0:1000]
         img_paths_test = img_paths_test[0:1000]
+        np.random.shuffle(img_paths_val)
         img_paths_val = img_paths_val[0:1000]
     
     # Create the datasets using the appropriate path.
@@ -135,6 +136,13 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
     test_dataset = WikiDatasets(paths = img_paths_test, new_process=settings.new_process)
     val_dataset = WikiDatasets(paths = img_paths_val, new_process=settings.new_process)
     
+    num_classes = train_dataset.num_labels()
+    assert train_dataset.num_labels() == test_dataset.num_labels() == val_dataset.num_labels()
+    node_attributes = train_dataset.node_attrs
+    assert train_dataset.node_attrs ==  test_dataset.node_attrs == val_dataset.node_attrs
+    edge_attributes = train_dataset.edge_attrs
+    assert train_dataset.edge_attrs == test_dataset.edge_attrs == val_dataset.edge_attrs
+
     # Create the dataloaders.
     def batch_size(sample_size: int) -> int:
         divisors = (n for n in range(settings.max_batch_size, 0, -1) if (sample_size % n) == 0)
@@ -151,5 +159,5 @@ def get_dataloaders(settings: Settings) -> Tuple[GraphDataLoader, GraphDataLoade
                                         sampler=RandomSampler(val_dataset),
                                         batch_size=batch_size(len(val_dataset)),
                                         drop_last=False)
-    return training_loader, testing_loader, validation_loader
+    return training_loader, testing_loader, validation_loader, num_classes ,node_attributes, edge_attributes
 

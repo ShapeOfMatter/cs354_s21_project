@@ -16,7 +16,7 @@
     "new_data": 1,
     "num_samples": 1,
     "sample_size": 5,
-    "epochs": 10,
+    "epochs": 2,
     "model_filename": "sub_graph_classifier",
     "master_dir": "datasets/samples",
     "val_year": 2009,
