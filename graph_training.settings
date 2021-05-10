@@ -23,6 +23,6 @@
     "model_filename": "sub_graph_classifier",
     "master_dir": "datasets/samples",
     "val_year": 2013,
-    "reduce_datasize": 1,
-    "new_process": 0
+    "reduce_datasize": 0,
+    "new_process": 1
 }

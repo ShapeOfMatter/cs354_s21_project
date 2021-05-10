@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
+import matplotlib.ticker as mtick
 
 def create_plots(stats):
     models = list(stats.keys())
@@ -14,6 +15,11 @@ def create_plots(stats):
                 plt.ylabel(stat)
                 plt.legend(loc = 'best')
                 plt.gca().yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}'))
+                if stat == 'test accuracy':
+                    plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
+                if stat == 'loss':
+                    plt.yscale('log')
+                    plt.ylabel(r'$\Log_{10}$ loss')
             else:
                 bar_plot_list.append(to_plot)
                 pass #TODO: add bar graph
