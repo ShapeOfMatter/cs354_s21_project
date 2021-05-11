@@ -97,13 +97,11 @@ def epoch_all(settings: Settings, models: Sequence[Model], epoch_number: int, *,
                                        optimizer=m.optimizer,
                                        criterion=m.criterion,
                                        label=m.name)
-        if len(m.losses) == 0:
-            m.losses.append(new_loss)
-        else:
-            if new_loss < min(m.losses):
-                print(f'New lowest loss for {m.name}. Saving weights!')
-                torch.save(m.model.state_dict(), settings.model_filename + m.name)
         m.losses.append(new_loss)
+        if new_loss < min(m.losses):
+            print(f'New lowest loss for {m.name}. Saving weights!')
+            torch.save(m.model.state_dict(), settings.model_filename + m.name)
+        
         m.test_accuracies.append(new_accuracy)
 
 
