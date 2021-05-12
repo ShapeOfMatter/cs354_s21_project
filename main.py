@@ -65,14 +65,15 @@ def main(settings: Settings):
                         optimizer=make_optimizer(settings.training_profile, model2)))
 
     # TAGConv
-    model3 = TAGConvN(len(node_attributes), 16, output_width)
+    model3 = Sequential(TAGConv(len(node_attributes), 16, k=5), TAGConv(16, output_width, k=5), AvgPooling())
     models.append(Model(name='TAGConv',
                         model=model3,
                         optimizer=make_optimizer(settings.training_profile, model3)))
 
     # R-TAG-Conv
-    model4 = Sequential(RelationalTAGConv(radius=2, width_in=len(node_attributes), forward_edge=8, backward_edge=8),
-                        TAGConv(16, output_width, k=0),
+    model4 = Sequential(RelationalTAGConv(radius=3, width_in=len(node_attributes), **{attr: 5 for attr in edge_attributes}),
+                        RelationalTAGConv(radius=3, width_in=len(edge_attributes) * 5, **{attr: 5 for attr in edge_attributes}),
+                        TAGConv(len(edge_attributes) * 5, output_width, k=0),
                         AvgPooling())
     models.append(Model(name='R-TAG-Conv',
                         model=model4,
