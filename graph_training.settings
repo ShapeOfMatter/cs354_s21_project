@@ -18,8 +18,8 @@
     "sample_size": 5,
     "epochs": 25,
     "model_filename": "sub_graph_classifier",
-    "master_dir": "datasets/samples",
+    "master_dir": "datasets/samples.nosync",
     "val_year": 2009,
-    "reduce_datasize": 0,
-    "new_process": 0
+    "reduce_datasize": 1,
+    "new_process": 1
 }
