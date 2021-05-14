@@ -7,7 +7,7 @@ Run install_requirements.bash in order to set up all dependancies.
 
 # Set up data
 Either
-1. Download processed RDS samples from: 
+1. Download processed RDS samples from https://drive.google.com/file/d/18RoIKTPwp5GKdYv8mtE8Wm2xwXYgkTav/view?usp=sharing
 2. Download unprocessed data from https://snap.stanford.edu/data/enwiki-2013.html. Then create RDS samples using make_data.graph2samp.py
 
 # Run
